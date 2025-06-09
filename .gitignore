@@ -23,5 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .env
-supabase/
-data/
+.superbase/migrations/
+
+.data/
