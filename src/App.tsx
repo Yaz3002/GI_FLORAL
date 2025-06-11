@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AppProvider } from './context/AppContext';
 import { useAuth } from './hooks/useAuth';
-import { useTheme } from './hooks/useTheme';
 import AuthForm from './components/auth/AuthForm';
 
 // Layout
@@ -21,16 +20,13 @@ import Settings from './pages/Settings';
 
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
-  
-  // Initialize theme
-  useTheme();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center transition-colors duration-200">
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-neutral-600 dark:text-neutral-400">Cargando...</p>
+          <p className="text-neutral-600">Cargando...</p>
         </div>
       </div>
     );
@@ -70,8 +66,8 @@ function App() {
         toastOptions={{
           duration: 3000,
           style: {
-            background: 'var(--toast-bg)',
-            color: 'var(--toast-color)',
+            background: '#fff',
+            color: '#333',
             boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
             borderRadius: '0.5rem',
             padding: '0.75rem 1rem',
@@ -88,18 +84,6 @@ function App() {
           },
         }}
       />
-      
-      <style>{`
-        :root {
-          --toast-bg: #fff;
-          --toast-color: #333;
-        }
-        
-        .dark {
-          --toast-bg: #374151;
-          --toast-color: #f3f4f6;
-        }
-      `}</style>
     </>
   );
 }
