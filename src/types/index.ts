@@ -3,22 +3,26 @@ export interface Product {
   id: string;
   name: string;
   code: string;
-  category: string;
-  supplier: string;
-  supplierID: string;
-  purchasePrice: number;
-  salePrice: number;
+  category_id: string | null;
+  supplier_id: string | null;
+  purchase_price: number;
+  sale_price: number;
   stock: number;
-  minStockLevel: number;
-  createdAt: string;
-  updatedAt: string;
-  imageUrl?: string;
+  min_stock_level: number;
+  image_url: string | null;
+  created_at: string;
+  updated_at: string;
+  // Computed fields from joins
+  category_name?: string;
+  supplier_name?: string;
 }
 
 export interface ProductCategory {
   id: string;
   name: string;
   description: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Supplier Types
@@ -31,23 +35,24 @@ export interface Supplier {
   address: string;
   rating: number;
   notes: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Inventory Types
 export interface InventoryTransaction {
   id: string;
-  productId: string;
-  productName: string;
+  product_id: string | null;
   type: 'entry' | 'exit';
   quantity: number;
-  previousStock: number;
-  newStock: number;
-  date: string;
-  userId: string;
-  userName: string;
+  previous_stock: number;
+  new_stock: number;
   notes: string;
+  user_id: string | null;
+  created_at: string;
+  // Computed fields
+  product_name?: string;
+  user_name?: string;
 }
 
 // Notification Types

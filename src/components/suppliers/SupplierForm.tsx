@@ -3,12 +3,12 @@ import { Supplier } from '../../types';
 
 interface SupplierFormProps {
   supplier?: Supplier;
-  onSubmit: (supplier: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'> | Supplier) => void;
+  onSubmit: (supplier: Omit<Supplier, 'id' | 'created_at' | 'updated_at'> | Supplier) => void;
   onCancel: () => void;
 }
 
 const SupplierForm: React.FC<SupplierFormProps> = ({ supplier, onSubmit, onCancel }) => {
-  const [formData, setFormData] = useState<Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>>({
+  const [formData, setFormData] = useState<Omit<Supplier, 'id' | 'created_at' | 'updated_at'>>({
     name: '',
     contact_name: '',
     email: '',
@@ -50,7 +50,7 @@ const SupplierForm: React.FC<SupplierFormProps> = ({ supplier, onSubmit, onCance
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // For existing suppliers, preserve the id, createdAt, and updatedAt
+    // For existing suppliers, preserve the id, created_at, and updated_at
     if (supplier) {
       onSubmit({
         ...supplier,

@@ -10,24 +10,34 @@ import { ArrowLeft, Edit, Trash2, Mail, Phone, MapPin, Star } from 'lucide-react
 const SupplierDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getSupplierById, updateSupplier, deleteSupplier, products } = useAppContext();
+  const { getSupplierById, updateSupplier, deleteSupplier, products, updateProduct, deleteProduct } = useAppContext();
   
   const supplier = getSupplierById(id || '');
-  const supplierProducts = products.filter(p => p.supplierID === id);
+  // Corregir la búsqueda de productos por supplier_id
+  const supplierProducts = products.filter(p => p.supplier_id === id);
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
-  const handleDeleteSupplier = () => {
+  const handleDeleteSupplier = async () => {
     if (supplier) {
-      deleteSupplier(supplier.id);
+      await deleteSupplier(supplier.id);
       navigate('/proveedores');
     }
   };
   
-  const handleSupplierUpdate = (updatedSupplier: any) => {
-    updateSupplier(updatedSupplier);
+  const handleSupplierUpdate = async (updatedSupplier: any) => {
+    await updateSupplier(updatedSupplier);
     setIsEditModalOpen(false);
+  };
+
+  const handleProductEdit = (product: any) => {
+    // Redirigir a la página de detalle del producto para editarlo
+    navigate(`/productos/${product.id}`);
+  };
+
+  const handleProductDelete = async (productId: string) => {
+    await deleteProduct(productId);
   };
   
   if (!supplier) {
@@ -55,7 +65,7 @@ const SupplierDetail: React.FC = () => {
         {hasHalfStar && (
           <div className="relative">
             <Star className="w-5 h-5 text-warning-500" />
-            <Star className="absolute top-0 left-0 w-5 h-5 text-warning-500 fill-warning-500 overflow-hidden\" style={{ clipPath: 'inset(0 50% 0 0)' }} />
+            <Star className="absolute top-0 left-0 w-5 h-5 text-warning-500 fill-warning-500 overflow-hidden" style={{ clipPath: 'inset(0 50% 0 0)' }} />
           </div>
         )}
         {[...Array(emptyStars)].map((_, i) => (
@@ -65,6 +75,16 @@ const SupplierDetail: React.FC = () => {
       </div>
     );
   };
+
+  // Calcular estadísticas del proveedor
+  const totalProducts = supplierProducts.length;
+  const totalInventoryValue = supplierProducts.reduce((total, product) => 
+    total + (product.purchase_price * product.stock), 0
+  );
+  const totalSalesValue = supplierProducts.reduce((total, product) => 
+    total + (product.sale_price * product.stock), 0
+  );
+  const lowStockProducts = supplierProducts.filter(p => p.stock <= p.min_stock_level).length;
   
   return (
     <div className="page-transition">
@@ -149,20 +169,34 @@ const SupplierDetail: React.FC = () => {
           <div className="card mt-6">
             <h2 className="text-lg font-semibold mb-4">Estadísticas</h2>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="bg-neutral-50 p-4 rounded-lg">
-                <h3 className="text-sm text-neutral-500">Productos</h3>
-                <p className="text-2xl font-semibold">{supplierProducts.length}</p>
+                <h3 className="text-sm text-neutral-500">Total de Productos</h3>
+                <p className="text-2xl font-semibold">{totalProducts}</p>
               </div>
               
               <div className="bg-neutral-50 p-4 rounded-lg">
-                <h3 className="text-sm text-neutral-500">Valor Total</h3>
+                <h3 className="text-sm text-neutral-500">Valor de Inventario</h3>
                 <p className="text-2xl font-semibold">
-                  {supplierProducts
-                    .reduce((total, product) => total + (product.purchasePrice * product.stock), 0)
-                    .toFixed(2)} S/
+                  S/ {totalInventoryValue.toFixed(2)}
                 </p>
+                <p className="text-xs text-neutral-500">Precio de compra</p>
               </div>
+
+              <div className="bg-neutral-50 p-4 rounded-lg">
+                <h3 className="text-sm text-neutral-500">Valor de Venta</h3>
+                <p className="text-2xl font-semibold">
+                  S/ {totalSalesValue.toFixed(2)}
+                </p>
+                <p className="text-xs text-neutral-500">Precio de venta</p>
+              </div>
+
+              {lowStockProducts > 0 && (
+                <div className="bg-warning-50 p-4 rounded-lg border border-warning-200">
+                  <h3 className="text-sm text-warning-600">Productos con Stock Bajo</h3>
+                  <p className="text-2xl font-semibold text-warning-600">{lowStockProducts}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -170,22 +204,70 @@ const SupplierDetail: React.FC = () => {
         {/* Products */}
         <div className="lg:col-span-2">
           <div className="card">
-            <h2 className="text-lg font-semibold mb-4">Productos del Proveedor</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Productos del Proveedor</h2>
+              <Link 
+                to="/productos" 
+                className="btn btn-outline btn-sm"
+              >
+                Agregar Producto
+              </Link>
+            </div>
             
             {supplierProducts.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {supplierProducts.map(product => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onEdit={() => {}}
-                    onDelete={() => {}}
-                  />
-                ))}
-              </div>
+              <>
+                {/* Resumen de productos */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-neutral-50 rounded-lg">
+                  <div className="text-center">
+                    <p className="text-sm text-neutral-500">Total Stock</p>
+                    <p className="text-lg font-semibold">
+                      {supplierProducts.reduce((sum, p) => sum + p.stock, 0)} uds.
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-neutral-500">Precio Promedio</p>
+                    <p className="text-lg font-semibold">
+                      S/ {(supplierProducts.reduce((sum, p) => sum + p.sale_price, 0) / supplierProducts.length).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-neutral-500">Margen Promedio</p>
+                    <p className="text-lg font-semibold">
+                      {(supplierProducts.reduce((sum, p) => {
+                        const margin = ((p.sale_price - p.purchase_price) / p.purchase_price) * 100;
+                        return sum + margin;
+                      }, 0) / supplierProducts.length).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-neutral-500">Categorías</p>
+                    <p className="text-lg font-semibold">
+                      {new Set(supplierProducts.map(p => p.category_name).filter(Boolean)).size}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Lista de productos */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {supplierProducts.map(product => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onEdit={handleProductEdit}
+                      onDelete={handleProductDelete}
+                    />
+                  ))}
+                </div>
+              </>
             ) : (
               <div className="text-center py-8 text-neutral-500">
-                No hay productos registrados para este proveedor
+                <p className="mb-4">No hay productos registrados para este proveedor</p>
+                <Link 
+                  to="/productos" 
+                  className="btn btn-primary"
+                >
+                  Agregar Primer Producto
+                </Link>
               </div>
             )}
           </div>
