@@ -10,7 +10,7 @@ interface SupplierFormProps {
 const SupplierForm: React.FC<SupplierFormProps> = ({ supplier, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState<Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
-    contactName: '',
+    contact_name: '',
     email: '',
     phone: '',
     address: '',
@@ -23,7 +23,7 @@ const SupplierForm: React.FC<SupplierFormProps> = ({ supplier, onSubmit, onCance
     if (supplier) {
       setFormData({
         name: supplier.name,
-        contactName: supplier.contactName,
+        contact_name: supplier.contact_name,
         email: supplier.email,
         phone: supplier.phone,
         address: supplier.address,
@@ -78,13 +78,13 @@ const SupplierForm: React.FC<SupplierFormProps> = ({ supplier, onSubmit, onCance
         </div>
         
         <div className="form-group">
-          <label htmlFor="contactName" className="form-label">Persona de Contacto</label>
+          <label htmlFor="contact_name" className="form-label">Persona de Contacto</label>
           <input
             type="text"
-            id="contactName"
-            name="contactName"
+            id="contact_name"
+            name="contact_name"
             className="input"
-            value={formData.contactName}
+            value={formData.contact_name}
             onChange={handleChange}
             required
           />

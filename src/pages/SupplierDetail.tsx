@@ -110,7 +110,7 @@ const SupplierDetail: React.FC = () => {
               
               <div>
                 <h3 className="text-sm font-medium text-neutral-500">Persona de Contacto</h3>
-                <p className="font-medium">{supplier.contactName}</p>
+                <p className="font-medium">{supplier.contact_name}</p>
               </div>
               
               <div className="space-y-2">

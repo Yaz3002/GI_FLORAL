@@ -25,7 +25,7 @@ export interface ProductCategory {
 export interface Supplier {
   id: string;
   name: string;
-  contactName: string;
+  contact_name: string;
   email: string;
   phone: string;
   address: string;

@@ -50,7 +50,7 @@ const Suppliers: React.FC = () => {
   const filteredSuppliers = suppliers.filter(supplier => {
     return (
       supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.contactName.toLowerCase().includes(searchTerm.toLowerCase())
+      supplier.contact_name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
   
@@ -134,7 +134,7 @@ const Suppliers: React.FC = () => {
               
               <div className="space-y-3">
                 <div>
-                  <p className="text-neutral-700">{supplier.contactName}</p>
+                  <p className="text-neutral-700">{supplier.contact_name}</p>
                   {renderRating(supplier.rating)}
                 </div>
                 
