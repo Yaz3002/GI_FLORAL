@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Sun, Moon, Globe, Type, Palette, Layout, Check, X } from 'lucide-react';
+import { Bell, Sun, Moon, Globe, Type, Layout, Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
@@ -16,9 +16,7 @@ interface NotificationSettings {
 interface AppearanceSettings {
   theme: 'light' | 'dark' | 'system';
   fontSize: 'small' | 'medium' | 'large';
-  colorScheme: 'default' | 'blue' | 'green' | 'purple';
   contentDensity: 'compact' | 'comfortable' | 'spacious';
-  sidebarCollapsed: boolean;
 }
 
 // Configuraciones por defecto
@@ -34,14 +32,12 @@ const defaultNotificationSettings: NotificationSettings = {
 const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'light',
   fontSize: 'medium',
-  colorScheme: 'default',
   contentDensity: 'comfortable',
-  sidebarCollapsed: false,
 };
 
 const Settings: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'notifications' | 'appearance' | 'account'>('notifications');
+  const [activeTab, setActiveTab] = useState<'notifications' | 'appearance'>('notifications');
   
   // Estados para configuraciones
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
@@ -66,7 +62,7 @@ const Settings: React.FC = () => {
   }, [appearanceSettings]);
 
   /**
-   * Cargar configuraciones desde localStorage y/o base de datos
+   * Cargar configuraciones desde localStorage
    */
   const loadSettings = async () => {
     try {
@@ -84,15 +80,6 @@ const Settings: React.FC = () => {
         setAppearanceSettings(JSON.parse(savedAppearance));
       }
       
-      // TODO: Aquí se podría cargar desde la base de datos si el usuario está autenticado
-      // if (user) {
-      //   const userSettings = await fetchUserSettings(user.id);
-      //   if (userSettings) {
-      //     setNotificationSettings(userSettings.notifications);
-      //     setAppearanceSettings(userSettings.appearance);
-      //   }
-      // }
-      
     } catch (error) {
       console.error('Error loading settings:', error);
       toast.error('Error al cargar las configuraciones');
@@ -102,7 +89,7 @@ const Settings: React.FC = () => {
   };
 
   /**
-   * Guardar configuraciones en localStorage y/o base de datos
+   * Guardar configuraciones en localStorage
    */
   const saveSettings = async () => {
     try {
@@ -111,14 +98,6 @@ const Settings: React.FC = () => {
       // Guardar en localStorage
       localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
       localStorage.setItem('appearanceSettings', JSON.stringify(appearanceSettings));
-      
-      // TODO: Guardar en base de datos si el usuario está autenticado
-      // if (user) {
-      //   await saveUserSettings(user.id, {
-      //     notifications: notificationSettings,
-      //     appearance: appearanceSettings
-      //   });
-      // }
       
       setHasUnsavedChanges(false);
       toast.success('Configuraciones guardadas exitosamente');
@@ -149,14 +128,8 @@ const Settings: React.FC = () => {
     // Aplicar tamaño de fuente
     body.setAttribute('data-font-size', settings.fontSize);
     
-    // Aplicar esquema de colores
-    body.setAttribute('data-color-scheme', settings.colorScheme);
-    
     // Aplicar densidad de contenido
     body.setAttribute('data-density', settings.contentDensity);
-    
-    // Aplicar estado del sidebar
-    body.setAttribute('data-sidebar-collapsed', settings.sidebarCollapsed.toString());
   };
 
   /**
@@ -200,9 +173,6 @@ const Settings: React.FC = () => {
           break;
         case 'fontSize':
           toast.success(`Tamaño de fuente: ${value === 'small' ? 'pequeño' : value === 'medium' ? 'mediano' : 'grande'}`);
-          break;
-        case 'colorScheme':
-          toast.success(`Esquema de colores: ${value}`);
           break;
         case 'contentDensity':
           toast.success(`Densidad: ${value === 'compact' ? 'compacta' : value === 'comfortable' ? 'cómoda' : 'espaciosa'}`);
@@ -355,23 +325,11 @@ const Settings: React.FC = () => {
                 }`}
                 onClick={() => setActiveTab('appearance')}
               >
-                <Palette size={18} />
+                <Sun size={18} />
                 <span>Apariencia</span>
                 {hasUnsavedChanges && activeTab === 'appearance' && (
                   <div className="w-2 h-2 bg-warning-500 rounded-full ml-auto"></div>
                 )}
-              </button>
-              
-              <button
-                className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeTab === 'account'
-                    ? 'bg-primary-50 text-primary-600'
-                    : 'text-neutral-600 hover:bg-neutral-50'
-                }`}
-                onClick={() => setActiveTab('account')}
-              >
-                <Globe size={18} />
-                <span>Cuenta</span>
               </button>
             </nav>
           </div>
@@ -456,7 +414,7 @@ const Settings: React.FC = () => {
             {activeTab === 'appearance' && (
               <div>
                 <div className="flex items-center gap-2 mb-6">
-                  <Palette className="text-primary-500" size={24} />
+                  <Sun className="text-primary-500" size={24} />
                   <h2 className="text-xl font-semibold">Configuración de Apariencia</h2>
                 </div>
                 
@@ -489,38 +447,6 @@ const Settings: React.FC = () => {
                     />
                   </div>
                   
-                  {/* Esquema de colores */}
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Esquema de Colores</h3>
-                    <OptionSelector
-                      options={[
-                        { 
-                          value: 'default', 
-                          label: 'Por Defecto',
-                          icon: <div className="w-6 h-6 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500"></div>
-                        },
-                        { 
-                          value: 'blue', 
-                          label: 'Azul',
-                          icon: <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-blue-600"></div>
-                        },
-                        { 
-                          value: 'green', 
-                          label: 'Verde',
-                          icon: <div className="w-6 h-6 rounded-full bg-gradient-to-r from-green-500 to-green-600"></div>
-                        },
-                        { 
-                          value: 'purple', 
-                          label: 'Púrpura',
-                          icon: <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-purple-600"></div>
-                        }
-                      ]}
-                      value={appearanceSettings.colorScheme}
-                      onChange={(value) => handleAppearanceChange('colorScheme', value)}
-                      columns={4}
-                    />
-                  </div>
-                  
                   {/* Densidad de contenido */}
                   <div>
                     <h3 className="text-lg font-medium mb-4">Densidad de Contenido</h3>
@@ -533,62 +459,6 @@ const Settings: React.FC = () => {
                       value={appearanceSettings.contentDensity}
                       onChange={(value) => handleAppearanceChange('contentDensity', value)}
                     />
-                  </div>
-                  
-                  {/* Configuraciones adicionales */}
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Configuraciones Adicionales</h3>
-                    <Toggle
-                      checked={appearanceSettings.sidebarCollapsed}
-                      onChange={() => handleAppearanceChange('sidebarCollapsed', !appearanceSettings.sidebarCollapsed)}
-                      label="Sidebar colapsado por defecto"
-                      description="El menú lateral se mostrará colapsado al cargar la aplicación"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Módulo de Cuenta */}
-            {activeTab === 'account' && (
-              <div>
-                <div className="flex items-center gap-2 mb-6">
-                  <Globe className="text-primary-500" size={24} />
-                  <h2 className="text-xl font-semibold">Configuración de Cuenta</h2>
-                </div>
-                
-                <div className="space-y-6">
-                  <div className="bg-neutral-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium mb-4">Información de Usuario</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm font-medium text-neutral-500">Email</label>
-                        <p className="text-neutral-900">{user?.email}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-neutral-500">ID de Usuario</label>
-                        <p className="text-neutral-900 font-mono text-sm">{user?.id}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-neutral-500">Última conexión</label>
-                        <p className="text-neutral-900">
-                          {user?.last_sign_in_at 
-                            ? new Date(user.last_sign_in_at).toLocaleString('es-ES')
-                            : 'No disponible'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-warning-50 border border-warning-200 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-warning-800 mb-2">Zona de Peligro</h3>
-                    <p className="text-warning-700 mb-4">
-                      Las siguientes acciones son irreversibles. Procede con precaución.
-                    </p>
-                    <button className="btn bg-error-500 hover:bg-error-600 text-white focus:ring-error-500">
-                      Eliminar Cuenta
-                    </button>
                   </div>
                 </div>
               </div>

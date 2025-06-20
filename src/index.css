@@ -45,25 +45,6 @@
     @apply px-6 py-3 text-base;
   }
   
-  /* Configuraciones de esquema de colores */
-  body[data-color-scheme="blue"] {
-    --color-primary-500: #3b82f6;
-    --color-primary-600: #2563eb;
-    --color-primary-50: #eff6ff;
-  }
-  
-  body[data-color-scheme="green"] {
-    --color-primary-500: #10b981;
-    --color-primary-600: #059669;
-    --color-primary-50: #ecfdf5;
-  }
-  
-  body[data-color-scheme="purple"] {
-    --color-primary-500: #8b5cf6;
-    --color-primary-600: #7c3aed;
-    --color-primary-50: #f5f3ff;
-  }
-  
   /* Tema oscuro */
   html.dark {
     @apply bg-neutral-900 text-neutral-100;
