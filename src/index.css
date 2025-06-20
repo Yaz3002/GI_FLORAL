@@ -11,8 +11,96 @@
     @apply bg-neutral-50 text-neutral-800 antialiased;
   }
   
+  /* Configuraciones de tamaño de fuente */
+  body[data-font-size="small"] {
+    font-size: 14px;
+  }
+  
+  body[data-font-size="medium"] {
+    font-size: 16px;
+  }
+  
+  body[data-font-size="large"] {
+    font-size: 18px;
+  }
+  
+  /* Configuraciones de densidad de contenido */
+  body[data-density="compact"] .card {
+    @apply p-4;
+  }
+  
+  body[data-density="comfortable"] .card {
+    @apply p-6;
+  }
+  
+  body[data-density="spacious"] .card {
+    @apply p-8;
+  }
+  
+  body[data-density="compact"] .btn {
+    @apply px-3 py-1.5 text-sm;
+  }
+  
+  body[data-density="spacious"] .btn {
+    @apply px-6 py-3 text-base;
+  }
+  
+  /* Configuraciones de esquema de colores */
+  body[data-color-scheme="blue"] {
+    --color-primary-500: #3b82f6;
+    --color-primary-600: #2563eb;
+    --color-primary-50: #eff6ff;
+  }
+  
+  body[data-color-scheme="green"] {
+    --color-primary-500: #10b981;
+    --color-primary-600: #059669;
+    --color-primary-50: #ecfdf5;
+  }
+  
+  body[data-color-scheme="purple"] {
+    --color-primary-500: #8b5cf6;
+    --color-primary-600: #7c3aed;
+    --color-primary-50: #f5f3ff;
+  }
+  
+  /* Tema oscuro */
+  html.dark {
+    @apply bg-neutral-900 text-neutral-100;
+  }
+  
+  html.dark .card {
+    @apply bg-neutral-800 border-neutral-700;
+  }
+  
+  html.dark .input,
+  html.dark .select {
+    @apply bg-neutral-800 border-neutral-600 text-neutral-100;
+  }
+  
+  html.dark .btn-outline {
+    @apply border-neutral-600 bg-neutral-800 text-neutral-100 hover:bg-neutral-700;
+  }
+  
+  html.dark .table-header {
+    @apply bg-neutral-800;
+  }
+  
+  html.dark .table-body {
+    @apply bg-neutral-900;
+  }
+  
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold text-neutral-900;
+  }
+  
+  html.dark h1,
+  html.dark h2,
+  html.dark h3,
+  html.dark h4,
+  html.dark h5,
+  html.dark h6 {
+    @apply text-neutral-100;
   }
   
   h1 {
@@ -58,11 +146,11 @@
   }
   
   .input {
-    @apply w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+    @apply w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200;
   }
   
   .select {
-    @apply w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+    @apply w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200;
   }
   
   .card {
@@ -154,4 +242,43 @@ a, button, input, select, textarea {
 
 ::-webkit-scrollbar-thumb {
   @apply bg-neutral-300 rounded-full hover:bg-neutral-400;
+}
+
+/* Dark mode scrollbar */
+html.dark ::-webkit-scrollbar-track {
+  @apply bg-neutral-800;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  @apply bg-neutral-600 hover:bg-neutral-500;
+}
+
+/* Animaciones personalizadas */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Configuraciones responsivas para densidad */
+@media (max-width: 768px) {
+  body[data-density="spacious"] .card {
+    @apply p-6;
+  }
+  
+  body[data-density="compact"] .card {
+    @apply p-3;
+  }
 }

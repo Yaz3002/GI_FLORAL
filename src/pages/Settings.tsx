@@ -1,67 +1,339 @@
-import React, { useState } from 'react';
-import { Bell, Sun, Moon, Globe } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import React, { useState, useEffect } from 'react';
+import { Bell, Sun, Moon, Globe, Type, Palette, Layout, Check, X } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
-const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'notifications' | 'appearance'>('notifications');
-  const [theme, setTheme] = useState('light');
-  const [density, setDensity] = useState('comfortable');
-  const [notifications, setNotifications] = useState({
-    lowStock: true,
-    inventory: true,
-    updates: false
-  });
+// Tipos para las configuraciones
+interface NotificationSettings {
+  pushNotifications: boolean;
+  lowStockAlerts: boolean;
+  inventoryMovements: boolean;
+  systemAlerts: boolean;
+  emailNotifications: boolean;
+  soundEnabled: boolean;
+}
 
-  const handleNotificationChange = (key: keyof typeof notifications) => {
-    setNotifications(prev => {
+interface AppearanceSettings {
+  theme: 'light' | 'dark' | 'system';
+  fontSize: 'small' | 'medium' | 'large';
+  colorScheme: 'default' | 'blue' | 'green' | 'purple';
+  contentDensity: 'compact' | 'comfortable' | 'spacious';
+  sidebarCollapsed: boolean;
+}
+
+// Configuraciones por defecto
+const defaultNotificationSettings: NotificationSettings = {
+  pushNotifications: true,
+  lowStockAlerts: true,
+  inventoryMovements: true,
+  systemAlerts: false,
+  emailNotifications: true,
+  soundEnabled: true,
+};
+
+const defaultAppearanceSettings: AppearanceSettings = {
+  theme: 'light',
+  fontSize: 'medium',
+  colorScheme: 'default',
+  contentDensity: 'comfortable',
+  sidebarCollapsed: false,
+};
+
+const Settings: React.FC = () => {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'notifications' | 'appearance' | 'account'>('notifications');
+  
+  // Estados para configuraciones
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
+  const [appearanceSettings, setAppearanceSettings] = useState<AppearanceSettings>(defaultAppearanceSettings);
+  
+  // Estados para UI
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  /**
+   * Cargar configuraciones guardadas al montar el componente
+   */
+  useEffect(() => {
+    loadSettings();
+  }, [user]);
+
+  /**
+   * Aplicar configuraciones de apariencia al DOM
+   */
+  useEffect(() => {
+    applyAppearanceSettings(appearanceSettings);
+  }, [appearanceSettings]);
+
+  /**
+   * Cargar configuraciones desde localStorage y/o base de datos
+   */
+  const loadSettings = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Cargar desde localStorage
+      const savedNotifications = localStorage.getItem('notificationSettings');
+      const savedAppearance = localStorage.getItem('appearanceSettings');
+      
+      if (savedNotifications) {
+        setNotificationSettings(JSON.parse(savedNotifications));
+      }
+      
+      if (savedAppearance) {
+        setAppearanceSettings(JSON.parse(savedAppearance));
+      }
+      
+      // TODO: Aquí se podría cargar desde la base de datos si el usuario está autenticado
+      // if (user) {
+      //   const userSettings = await fetchUserSettings(user.id);
+      //   if (userSettings) {
+      //     setNotificationSettings(userSettings.notifications);
+      //     setAppearanceSettings(userSettings.appearance);
+      //   }
+      // }
+      
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      toast.error('Error al cargar las configuraciones');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Guardar configuraciones en localStorage y/o base de datos
+   */
+  const saveSettings = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Guardar en localStorage
+      localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
+      localStorage.setItem('appearanceSettings', JSON.stringify(appearanceSettings));
+      
+      // TODO: Guardar en base de datos si el usuario está autenticado
+      // if (user) {
+      //   await saveUserSettings(user.id, {
+      //     notifications: notificationSettings,
+      //     appearance: appearanceSettings
+      //   });
+      // }
+      
+      setHasUnsavedChanges(false);
+      toast.success('Configuraciones guardadas exitosamente');
+      
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast.error('Error al guardar las configuraciones');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Aplicar configuraciones de apariencia al DOM
+   */
+  const applyAppearanceSettings = (settings: AppearanceSettings) => {
+    const root = document.documentElement;
+    const body = document.body;
+    
+    // Aplicar tema
+    if (settings.theme === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      root.className = prefersDark ? 'dark' : 'light';
+    } else {
+      root.className = settings.theme;
+    }
+    
+    // Aplicar tamaño de fuente
+    body.setAttribute('data-font-size', settings.fontSize);
+    
+    // Aplicar esquema de colores
+    body.setAttribute('data-color-scheme', settings.colorScheme);
+    
+    // Aplicar densidad de contenido
+    body.setAttribute('data-density', settings.contentDensity);
+    
+    // Aplicar estado del sidebar
+    body.setAttribute('data-sidebar-collapsed', settings.sidebarCollapsed.toString());
+  };
+
+  /**
+   * Manejar cambios en configuraciones de notificaciones
+   */
+  const handleNotificationChange = (key: keyof NotificationSettings) => {
+    setNotificationSettings(prev => {
       const newSettings = { ...prev, [key]: !prev[key] };
-      // Save to localStorage
-      localStorage.setItem('notificationSettings', JSON.stringify(newSettings));
-      toast.success('Configuración de notificaciones actualizada');
+      setHasUnsavedChanges(true);
+      
+      // Feedback inmediato para algunas configuraciones
+      if (key === 'soundEnabled') {
+        if (newSettings.soundEnabled) {
+          // Reproducir sonido de prueba
+          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
+          audio.volume = 0.1;
+          audio.play().catch(() => {}); // Ignorar errores de reproducción
+        }
+        toast.success(`Sonidos ${newSettings.soundEnabled ? 'activados' : 'desactivados'}`);
+      }
+      
       return newSettings;
     });
   };
 
-  const handleThemeChange = (newTheme: string) => {
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.documentElement.className = newTheme;
-    toast.success('Tema actualizado');
+  /**
+   * Manejar cambios en configuraciones de apariencia
+   */
+  const handleAppearanceChange = (key: keyof AppearanceSettings, value: any) => {
+    setAppearanceSettings(prev => {
+      const newSettings = { ...prev, [key]: value };
+      setHasUnsavedChanges(true);
+      
+      // Aplicar cambios inmediatamente
+      applyAppearanceSettings(newSettings);
+      
+      // Feedback específico
+      switch (key) {
+        case 'theme':
+          toast.success(`Tema cambiado a ${value === 'light' ? 'claro' : value === 'dark' ? 'oscuro' : 'sistema'}`);
+          break;
+        case 'fontSize':
+          toast.success(`Tamaño de fuente: ${value === 'small' ? 'pequeño' : value === 'medium' ? 'mediano' : 'grande'}`);
+          break;
+        case 'colorScheme':
+          toast.success(`Esquema de colores: ${value}`);
+          break;
+        case 'contentDensity':
+          toast.success(`Densidad: ${value === 'compact' ? 'compacta' : value === 'comfortable' ? 'cómoda' : 'espaciosa'}`);
+          break;
+      }
+      
+      return newSettings;
+    });
   };
 
-  const handleDensityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newDensity = e.target.value;
-    setDensity(newDensity);
-    localStorage.setItem('contentDensity', newDensity);
-    document.body.dataset.density = newDensity;
-    toast.success('Densidad de contenido actualizada');
+  /**
+   * Restablecer configuraciones a valores por defecto
+   */
+  const resetToDefaults = () => {
+    setNotificationSettings(defaultNotificationSettings);
+    setAppearanceSettings(defaultAppearanceSettings);
+    setHasUnsavedChanges(true);
+    toast.success('Configuraciones restablecidas a valores por defecto');
   };
 
-  // Load saved settings on mount
-  React.useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    const savedDensity = localStorage.getItem('contentDensity') || 'comfortable';
-    const savedNotifications = JSON.parse(localStorage.getItem('notificationSettings') || 'null');
+  /**
+   * Componente Toggle personalizado
+   */
+  const Toggle: React.FC<{
+    checked: boolean;
+    onChange: () => void;
+    disabled?: boolean;
+    label: string;
+    description?: string;
+  }> = ({ checked, onChange, disabled = false, label, description }) => (
+    <div className="flex items-center justify-between py-3 border-b border-neutral-200 last:border-b-0">
+      <div className="flex-1">
+        <h3 className="font-medium text-neutral-900">{label}</h3>
+        {description && (
+          <p className="text-sm text-neutral-500 mt-1">{description}</p>
+        )}
+      </div>
+      <label className="relative inline-flex items-center cursor-pointer">
+        <input 
+          type="checkbox" 
+          className="sr-only peer" 
+          checked={checked}
+          onChange={onChange}
+          disabled={disabled}
+        />
+        <div className={`w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer transition-all duration-200 ${
+          checked ? 'peer-checked:bg-primary-500' : ''
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all`}></div>
+      </label>
+    </div>
+  );
 
-    setTheme(savedTheme);
-    setDensity(savedDensity);
-    if (savedNotifications) {
-      setNotifications(savedNotifications);
-    }
-  }, []);
+  /**
+   * Componente para selector de opciones
+   */
+  const OptionSelector: React.FC<{
+    options: { value: string; label: string; icon?: React.ReactNode }[];
+    value: string;
+    onChange: (value: string) => void;
+    columns?: number;
+  }> = ({ options, value, onChange, columns = 3 }) => (
+    <div className={`grid grid-cols-1 md:grid-cols-${columns} gap-3`}>
+      {options.map(option => (
+        <button 
+          key={option.value}
+          className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all duration-200 ${
+            value === option.value 
+              ? 'border-primary-500 bg-primary-50 text-primary-700' 
+              : 'border-neutral-200 hover:border-primary-300 bg-white hover:bg-primary-50'
+          }`}
+          onClick={() => onChange(option.value)}
+        >
+          {option.icon && (
+            <div className={`${value === option.value ? 'text-primary-500' : 'text-neutral-500'}`}>
+              {option.icon}
+            </div>
+          )}
+          <span className="text-sm font-medium">{option.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  if (isLoading) {
+    return (
+      <div className="page-transition">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+          <span className="ml-2">Cargando configuraciones...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-transition">
-      <h1 className="text-2xl font-bold mb-6">Configuración</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold">Configuración</h1>
+        
+        {hasUnsavedChanges && (
+          <div className="flex gap-2">
+            <button
+              onClick={resetToDefaults}
+              className="btn btn-outline btn-sm"
+              disabled={isLoading}
+            >
+              Restablecer
+            </button>
+            <button
+              onClick={saveSettings}
+              className="btn btn-primary btn-sm flex items-center gap-2"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Check size={16} />
+              )}
+              <span>Guardar Cambios</span>
+            </button>
+          </div>
+        )}
+      </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <div className="md:col-span-1">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar de navegación */}
+        <div className="lg:col-span-1">
           <div className="card">
             <nav className="space-y-1">
               <button
-                className={`w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md ${
+                className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeTab === 'notifications'
                     ? 'bg-primary-50 text-primary-600'
                     : 'text-neutral-600 hover:bg-neutral-50'
@@ -70,138 +342,253 @@ const Settings: React.FC = () => {
               >
                 <Bell size={18} />
                 <span>Notificaciones</span>
+                {hasUnsavedChanges && activeTab === 'notifications' && (
+                  <div className="w-2 h-2 bg-warning-500 rounded-full ml-auto"></div>
+                )}
               </button>
               
               <button
-                className={`w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md ${
+                className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeTab === 'appearance'
                     ? 'bg-primary-50 text-primary-600'
                     : 'text-neutral-600 hover:bg-neutral-50'
                 }`}
                 onClick={() => setActiveTab('appearance')}
               >
-                <Sun size={18} />
+                <Palette size={18} />
                 <span>Apariencia</span>
+                {hasUnsavedChanges && activeTab === 'appearance' && (
+                  <div className="w-2 h-2 bg-warning-500 rounded-full ml-auto"></div>
+                )}
+              </button>
+              
+              <button
+                className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === 'account'
+                    ? 'bg-primary-50 text-primary-600'
+                    : 'text-neutral-600 hover:bg-neutral-50'
+                }`}
+                onClick={() => setActiveTab('account')}
+              >
+                <Globe size={18} />
+                <span>Cuenta</span>
               </button>
             </nav>
           </div>
         </div>
         
-        {/* Main Content */}
-        <div className="md:col-span-3">
+        {/* Contenido principal */}
+        <div className="lg:col-span-3">
           <div className="card">
+            {/* Módulo de Notificaciones */}
             {activeTab === 'notifications' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4">Preferencias de Notificaciones</h2>
+                <div className="flex items-center gap-2 mb-6">
+                  <Bell className="text-primary-500" size={24} />
+                  <h2 className="text-xl font-semibold">Configuración de Notificaciones</h2>
+                </div>
                 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between py-3 border-b border-neutral-200">
-                    <div>
-                      <h3 className="font-medium">Alertas de Stock Bajo</h3>
-                      <p className="text-sm text-neutral-500">Recibe notificaciones cuando los productos alcancen el nivel mínimo de stock</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={notifications.lowStock}
-                        onChange={() => handleNotificationChange('lowStock')}
+                <div className="space-y-6">
+                  {/* Notificaciones Push */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Notificaciones Push</h3>
+                    <div className="space-y-1">
+                      <Toggle
+                        checked={notificationSettings.pushNotifications}
+                        onChange={() => handleNotificationChange('pushNotifications')}
+                        label="Activar notificaciones push"
+                        description="Recibe notificaciones en tiempo real en tu navegador"
                       />
-                      <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-                    </label>
+                    </div>
                   </div>
                   
-                  <div className="flex items-center justify-between py-3 border-b border-neutral-200">
-                    <div>
-                      <h3 className="font-medium">Movimientos de Inventario</h3>
-                      <p className="text-sm text-neutral-500">Notificaciones sobre entradas y salidas significativas de inventario</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={notifications.inventory}
-                        onChange={() => handleNotificationChange('inventory')}
+                  {/* Alertas del Sistema */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Alertas del Sistema</h3>
+                    <div className="space-y-1">
+                      <Toggle
+                        checked={notificationSettings.lowStockAlerts}
+                        onChange={() => handleNotificationChange('lowStockAlerts')}
+                        label="Alertas de stock bajo"
+                        description="Notificaciones cuando los productos alcancen el nivel mínimo de stock"
                       />
-                      <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-                    </label>
+                      
+                      <Toggle
+                        checked={notificationSettings.inventoryMovements}
+                        onChange={() => handleNotificationChange('inventoryMovements')}
+                        label="Movimientos de inventario"
+                        description="Notificaciones sobre entradas y salidas significativas de inventario"
+                      />
+                      
+                      <Toggle
+                        checked={notificationSettings.systemAlerts}
+                        onChange={() => handleNotificationChange('systemAlerts')}
+                        label="Alertas del sistema"
+                        description="Notificaciones sobre actualizaciones y mantenimiento del sistema"
+                      />
+                    </div>
                   </div>
                   
-                  <div className="flex items-center justify-between py-3 border-b border-neutral-200">
-                    <div>
-                      <h3 className="font-medium">Actualizaciones del Sistema</h3>
-                      <p className="text-sm text-neutral-500">Recibe notificaciones sobre nuevas características y actualizaciones</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={notifications.updates}
-                        onChange={() => handleNotificationChange('updates')}
+                  {/* Configuraciones adicionales */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Configuraciones Adicionales</h3>
+                    <div className="space-y-1">
+                      <Toggle
+                        checked={notificationSettings.emailNotifications}
+                        onChange={() => handleNotificationChange('emailNotifications')}
+                        label="Notificaciones por email"
+                        description="Recibe resúmenes diarios y alertas importantes por correo electrónico"
                       />
-                      <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-                    </label>
+                      
+                      <Toggle
+                        checked={notificationSettings.soundEnabled}
+                        onChange={() => handleNotificationChange('soundEnabled')}
+                        label="Sonidos de notificación"
+                        description="Reproducir sonidos cuando lleguen nuevas notificaciones"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             )}
             
+            {/* Módulo de Apariencia */}
             {activeTab === 'appearance' && (
               <div>
-                <h2 className="text-lg font-semibold mb-4">Apariencia</h2>
+                <div className="flex items-center gap-2 mb-6">
+                  <Palette className="text-primary-500" size={24} />
+                  <h2 className="text-xl font-semibold">Configuración de Apariencia</h2>
+                </div>
+                
+                <div className="space-y-8">
+                  {/* Selector de tema */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Tema</h3>
+                    <OptionSelector
+                      options={[
+                        { value: 'light', label: 'Claro', icon: <Sun size={24} /> },
+                        { value: 'dark', label: 'Oscuro', icon: <Moon size={24} /> },
+                        { value: 'system', label: 'Sistema', icon: <Globe size={24} /> }
+                      ]}
+                      value={appearanceSettings.theme}
+                      onChange={(value) => handleAppearanceChange('theme', value)}
+                    />
+                  </div>
+                  
+                  {/* Tamaño de fuente */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Tamaño de Fuente</h3>
+                    <OptionSelector
+                      options={[
+                        { value: 'small', label: 'Pequeño', icon: <Type size={18} /> },
+                        { value: 'medium', label: 'Mediano', icon: <Type size={22} /> },
+                        { value: 'large', label: 'Grande', icon: <Type size={26} /> }
+                      ]}
+                      value={appearanceSettings.fontSize}
+                      onChange={(value) => handleAppearanceChange('fontSize', value)}
+                    />
+                  </div>
+                  
+                  {/* Esquema de colores */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Esquema de Colores</h3>
+                    <OptionSelector
+                      options={[
+                        { 
+                          value: 'default', 
+                          label: 'Por Defecto',
+                          icon: <div className="w-6 h-6 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500"></div>
+                        },
+                        { 
+                          value: 'blue', 
+                          label: 'Azul',
+                          icon: <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-blue-600"></div>
+                        },
+                        { 
+                          value: 'green', 
+                          label: 'Verde',
+                          icon: <div className="w-6 h-6 rounded-full bg-gradient-to-r from-green-500 to-green-600"></div>
+                        },
+                        { 
+                          value: 'purple', 
+                          label: 'Púrpura',
+                          icon: <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-purple-600"></div>
+                        }
+                      ]}
+                      value={appearanceSettings.colorScheme}
+                      onChange={(value) => handleAppearanceChange('colorScheme', value)}
+                      columns={4}
+                    />
+                  </div>
+                  
+                  {/* Densidad de contenido */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Densidad de Contenido</h3>
+                    <OptionSelector
+                      options={[
+                        { value: 'compact', label: 'Compacta', icon: <Layout size={20} /> },
+                        { value: 'comfortable', label: 'Cómoda', icon: <Layout size={22} /> },
+                        { value: 'spacious', label: 'Espaciosa', icon: <Layout size={24} /> }
+                      ]}
+                      value={appearanceSettings.contentDensity}
+                      onChange={(value) => handleAppearanceChange('contentDensity', value)}
+                    />
+                  </div>
+                  
+                  {/* Configuraciones adicionales */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Configuraciones Adicionales</h3>
+                    <Toggle
+                      checked={appearanceSettings.sidebarCollapsed}
+                      onChange={() => handleAppearanceChange('sidebarCollapsed', !appearanceSettings.sidebarCollapsed)}
+                      label="Sidebar colapsado por defecto"
+                      description="El menú lateral se mostrará colapsado al cargar la aplicación"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Módulo de Cuenta */}
+            {activeTab === 'account' && (
+              <div>
+                <div className="flex items-center gap-2 mb-6">
+                  <Globe className="text-primary-500" size={24} />
+                  <h2 className="text-xl font-semibold">Configuración de Cuenta</h2>
+                </div>
                 
                 <div className="space-y-6">
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Tema</h3>
-                    <div className="grid grid-cols-3 gap-3">
-                      <button 
-                        className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 ${
-                          theme === 'light' 
-                            ? 'border-primary-500 bg-white' 
-                            : 'border-neutral-200 hover:border-primary-500 bg-white'
-                        }`}
-                        onClick={() => handleThemeChange('light')}
-                      >
-                        <Sun size={24} className={theme === 'light' ? 'text-primary-500' : 'text-neutral-500'} />
-                        <span className="text-sm font-medium">Claro</span>
-                      </button>
-                      
-                      <button 
-                        className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 ${
-                          theme === 'dark' 
-                            ? 'border-primary-500 bg-white' 
-                            : 'border-neutral-200 hover:border-primary-500 bg-white'
-                        }`}
-                        onClick={() => handleThemeChange('dark')}
-                      >
-                        <Moon size={24} className={theme === 'dark' ? 'text-primary-500' : 'text-neutral-500'} />
-                        <span className="text-sm font-medium">Oscuro</span>
-                      </button>
-                      
-                      <button 
-                        className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 ${
-                          theme === 'system' 
-                            ? 'border-primary-500 bg-white' 
-                            : 'border-neutral-200 hover:border-primary-500 bg-white'
-                        }`}
-                        onClick={() => handleThemeChange('system')}
-                      >
-                        <Globe size={24} className={theme === 'system' ? 'text-primary-500' : 'text-neutral-500'} />
-                        <span className="text-sm font-medium">Sistema</span>
-                      </button>
+                  <div className="bg-neutral-50 p-6 rounded-lg">
+                    <h3 className="text-lg font-medium mb-4">Información de Usuario</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-sm font-medium text-neutral-500">Email</label>
+                        <p className="text-neutral-900">{user?.email}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-neutral-500">ID de Usuario</label>
+                        <p className="text-neutral-900 font-mono text-sm">{user?.id}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-neutral-500">Última conexión</label>
+                        <p className="text-neutral-900">
+                          {user?.last_sign_in_at 
+                            ? new Date(user.last_sign_in_at).toLocaleString('es-ES')
+                            : 'No disponible'
+                          }
+                        </p>
+                      </div>
                     </div>
                   </div>
                   
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Densidad de Contenido</h3>
-                    <select 
-                      className="select"
-                      value={density}
-                      onChange={handleDensityChange}
-                    >
-                      <option value="comfortable">Cómoda</option>
-                      <option value="compact">Compacta</option>
-                    </select>
+                  <div className="bg-warning-50 border border-warning-200 p-6 rounded-lg">
+                    <h3 className="text-lg font-medium text-warning-800 mb-2">Zona de Peligro</h3>
+                    <p className="text-warning-700 mb-4">
+                      Las siguientes acciones son irreversibles. Procede con precaución.
+                    </p>
+                    <button className="btn bg-error-500 hover:bg-error-600 text-white focus:ring-error-500">
+                      Eliminar Cuenta
+                    </button>
                   </div>
                 </div>
               </div>
