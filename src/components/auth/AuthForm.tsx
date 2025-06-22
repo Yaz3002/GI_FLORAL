@@ -4,8 +4,7 @@ import { Flower2, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AuthForm: React.FC = () => {
-  const { signIn, signUp } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const { signIn } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -25,20 +24,11 @@ const AuthForm: React.FC = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await signIn(formData.email, formData.password);
-        if (error) {
-          toast.error(error.message);
-        } else {
-          toast.success('¡Bienvenido de vuelta!');
-        }
+      const { error } = await signIn(formData.email, formData.password);
+      if (error) {
+        toast.error('Credenciales incorrectas. Verifica tu email y contraseña.');
       } else {
-        const { error } = await signUp(formData.email, formData.password);
-        if (error) {
-          toast.error(error.message);
-        } else {
-          toast.success('Cuenta creada exitosamente. Revisa tu email para confirmar.');
-        }
+        toast.success('¡Bienvenido de vuelta!');
       }
     } catch (error) {
       toast.error('Ocurrió un error inesperado');
@@ -59,7 +49,7 @@ const AuthForm: React.FC = () => {
             </div>
           </div>
           <p className="text-neutral-600">
-            {isLogin ? 'Inicia sesión en tu cuenta' : 'Crea una nueva cuenta'}
+            Inicia sesión en tu cuenta
           </p>
         </div>
 
@@ -115,20 +105,14 @@ const AuthForm: React.FC = () => {
             className="btn btn-primary w-full"
             disabled={loading}
           >
-            {loading ? 'Cargando...' : isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
+            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <button
-            type="button"
-            className="text-primary-600 hover:text-primary-700 text-sm"
-            onClick={() => setIsLogin(!isLogin)}
-          >
-            {isLogin
-              ? '¿No tienes cuenta? Regístrate'
-              : '¿Ya tienes cuenta? Inicia sesión'}
-          </button>
+          <p className="text-sm text-neutral-500">
+            Sistema de Gestión de Inventarios
+          </p>
         </div>
       </div>
     </div>
