@@ -14,22 +14,11 @@ export interface Event {
   updated_at: string;
   // Computed fields
   creator_email?: string;
-  is_registered?: boolean;
 }
 
 export type EventCategory = 'social' | 'academico' | 'cultural' | 'comercial' | 'taller' | 'otro';
 
 export type EventStatus = 'proximo' | 'en_curso' | 'finalizado' | 'cancelado';
-
-export interface EventAttendee {
-  id: string;
-  event_id: string;
-  user_id: string;
-  registered_at: string;
-  status: 'confirmado' | 'pendiente' | 'cancelado';
-  // Computed fields
-  user_email?: string;
-}
 
 export interface EventFilters {
   startDate?: string;

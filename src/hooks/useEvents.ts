@@ -37,39 +37,15 @@ export const useEvents = () => {
       }
       
       if (filters?.search) {
-        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%,location.ilike.%${filters.search}%`);
       }
 
       const { data: eventsData, error } = await query;
       
       if (error) throw error;
       
-      // For each event, check if current user is registered
-      const eventsWithRegistration = await Promise.all(
-        (eventsData || []).map(async (event) => {
-          let isRegistered = false;
-          
-          if (user) {
-            const { data: attendeeData } = await supabase
-              .from('event_attendees')
-              .select('id')
-              .eq('event_id', event.id)
-              .eq('user_id', user.id)
-              .eq('status', 'confirmado')
-              .maybeSingle();
-            
-            isRegistered = !!attendeeData;
-          }
-          
-          return {
-            ...event,
-            creator_email: '', // We'll handle this separately if needed
-            is_registered: isRegistered,
-          };
-        })
-      );
-      
-      setEvents(eventsWithRegistration);
+      // Simply set events without registration check since we removed that functionality
+      setEvents(eventsData || []);
     } catch (error: any) {
       console.error('Error fetching events:', error);
       toast.error('Error al cargar los eventos');
@@ -149,90 +125,6 @@ export const useEvents = () => {
     }
   };
 
-  // Register for event
-  const registerForEvent = async (eventId: string) => {
-    if (!user) {
-      toast.error('Debes iniciar sesión para registrarte');
-      return;
-    }
-
-    try {
-      // Check if event is full
-      const { data: eventData } = await supabase
-        .from('events')
-        .select('max_attendees, current_attendees')
-        .eq('id', eventId)
-        .single();
-
-      if (eventData?.max_attendees && eventData.current_attendees >= eventData.max_attendees) {
-        toast.error('El evento está completo');
-        return;
-      }
-
-      const { error } = await supabase
-        .from('event_attendees')
-        .insert([{
-          event_id: eventId,
-          user_id: user.id,
-          status: 'confirmado',
-        }]);
-      
-      if (error) throw error;
-      
-      toast.success('Te has registrado exitosamente al evento');
-      await fetchEvents();
-    } catch (error: any) {
-      console.error('Error registering for event:', error);
-      if (error.code === '23505') {
-        toast.error('Ya estás registrado en este evento');
-      } else {
-        toast.error(error.message || 'Error al registrarse al evento');
-      }
-      throw error;
-    }
-  };
-
-  // Unregister from event
-  const unregisterFromEvent = async (eventId: string) => {
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('event_attendees')
-        .delete()
-        .eq('event_id', eventId)
-        .eq('user_id', user.id);
-      
-      if (error) throw error;
-      
-      toast.success('Te has desregistrado del evento');
-      await fetchEvents();
-    } catch (error: any) {
-      console.error('Error unregistering from event:', error);
-      toast.error(error.message || 'Error al desregistrarse del evento');
-      throw error;
-    }
-  };
-
-  // Get event attendees
-  const getEventAttendees = async (eventId: string): Promise<EventAttendee[]> => {
-    try {
-      const { data, error } = await supabase
-        .from('event_attendees')
-        .select('*')
-        .eq('event_id', eventId)
-        .eq('status', 'confirmado');
-      
-      if (error) throw error;
-      
-      return data || [];
-    } catch (error: any) {
-      console.error('Error fetching attendees:', error);
-      toast.error('Error al cargar los asistentes');
-      return [];
-    }
-  };
-
   // Update event statuses based on current time
   const updateEventStatuses = async () => {
     try {
@@ -301,16 +193,6 @@ export const useEvents = () => {
             fetchEvents();
           }
         )
-        .on('postgres_changes', 
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'event_attendees' 
-          }, 
-          () => {
-            fetchEvents();
-          }
-        )
         .subscribe();
 
       // Update statuses every 5 minutes
@@ -330,9 +212,6 @@ export const useEvents = () => {
     createEvent,
     updateEvent,
     deleteEvent,
-    registerForEvent,
-    unregisterFromEvent,
-    getEventAttendees,
     updateEventStatuses,
     getEventById,
   };

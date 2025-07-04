@@ -7,7 +7,7 @@ import EventFiltersComponent from '../components/events/EventFilters';
 import EventCalendar from '../components/events/EventCalendar';
 import Modal from '../components/common/Modal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
-import { Plus, Calendar, Grid, Bell, RefreshCw } from 'lucide-react';
+import { Plus, Calendar, Grid, Bell, RefreshCw, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Events: React.FC = () => {
@@ -18,8 +18,6 @@ const Events: React.FC = () => {
     createEvent,
     updateEvent,
     deleteEvent,
-    registerForEvent,
-    unregisterFromEvent,
     updateEventStatuses,
   } = useEvents();
 
@@ -30,6 +28,7 @@ const Events: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid');
   const [calendarView, setCalendarView] = useState<'month' | 'week'>('month');
   const [refreshing, setRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Handle opening the form modal for creating or editing
   const handleOpenModal = (event?: Event) => {
@@ -69,26 +68,22 @@ const Events: React.FC = () => {
     }
   };
 
-  // Handle event registration
-  const handleRegister = async (eventId: string) => {
-    try {
-      await registerForEvent(eventId);
-    } catch (error) {
-      console.error('Error registering for event:', error);
-    }
-  };
-
-  const handleUnregister = async (eventId: string) => {
-    try {
-      await unregisterFromEvent(eventId);
-    } catch (error) {
-      console.error('Error unregistering from event:', error);
-    }
-  };
-
   // Handle filter changes
   const handleFilterChange = (filters: EventFilters) => {
     fetchEvents(filters);
+  };
+
+  // Handle search
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    
+    // Debounce search
+    const timeoutId = setTimeout(() => {
+      fetchEvents({ search: value });
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
   };
 
   // Handle calendar event click
@@ -224,6 +219,22 @@ const Events: React.FC = () => {
         </div>
       )}
 
+      {/* Quick Search */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <Search className="w-4 h-4 text-neutral-400" />
+          </div>
+          <input
+            type="search"
+            className="input pl-10"
+            placeholder="Buscar eventos por título, descripción o ubicación..."
+            value={searchTerm}
+            onChange={handleSearch}
+          />
+        </div>
+      </div>
+
       {/* Filters */}
       <EventFiltersComponent onFilterChange={handleFilterChange} />
 
@@ -246,15 +257,15 @@ const Events: React.FC = () => {
                   event={event}
                   onEdit={handleOpenModal}
                   onDelete={handleDeleteClick}
-                  onRegister={handleRegister}
-                  onUnregister={handleUnregister}
                 />
               ))}
             </div>
           ) : (
             <div className="text-center py-12 bg-neutral-50 rounded-lg">
               <Calendar className="mx-auto h-12 w-12 text-neutral-400 mb-4" />
-              <p className="text-neutral-500 mb-4">No hay eventos programados</p>
+              <p className="text-neutral-500 mb-4">
+                {searchTerm ? 'No se encontraron eventos que coincidan con tu búsqueda' : 'No hay eventos programados'}
+              </p>
               <button
                 className="btn btn-primary"
                 onClick={() => handleOpenModal()}
@@ -292,7 +303,7 @@ const Events: React.FC = () => {
         onClose={() => setIsDeleteDialogOpen(false)}
         onConfirm={confirmDelete}
         title="Confirmar eliminación"
-        message="¿Estás seguro de que deseas eliminar este evento? Esta acción no se puede deshacer y se cancelarán todas las inscripciones."
+        message="¿Estás seguro de que deseas eliminar este evento? Esta acción no se puede deshacer."
         confirmText="Eliminar"
         cancelText="Cancelar"
         type="danger"

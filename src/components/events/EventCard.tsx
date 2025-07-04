@@ -1,6 +1,6 @@
 import React from 'react';
 import { Event } from '../../types/events';
-import { Calendar, Clock, MapPin, Users, Edit, Trash2, UserPlus, UserMinus } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Edit, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../hooks/useAuth';
@@ -9,8 +9,6 @@ interface EventCardProps {
   event: Event;
   onEdit?: (event: Event) => void;
   onDelete?: (id: string) => void;
-  onRegister?: (eventId: string) => void;
-  onUnregister?: (eventId: string) => void;
   showActions?: boolean;
 }
 
@@ -18,8 +16,6 @@ const EventCard: React.FC<EventCardProps> = ({
   event,
   onEdit,
   onDelete,
-  onRegister,
-  onUnregister,
   showActions = true,
 }) => {
   const { user } = useAuth();
@@ -79,8 +75,6 @@ const EventCard: React.FC<EventCardProps> = ({
   };
 
   const isEventFull = event.max_attendees && event.current_attendees >= event.max_attendees;
-  const canRegister = event.status === 'proximo' && !isEventFull && !event.is_registered;
-  const canUnregister = event.status === 'proximo' && event.is_registered;
   const isOwner = user?.id === event.created_by;
 
   // Format dates safely
@@ -171,43 +165,12 @@ const EventCard: React.FC<EventCardProps> = ({
         )}
       </div>
 
-      {showActions && event.status === 'proximo' && (
-        <div className="flex gap-2 pt-3 border-t border-neutral-100">
-          {canRegister && (
-            <button
-              onClick={() => onRegister?.(event.id)}
-              className="btn btn-primary btn-sm flex items-center gap-1 flex-1"
-              disabled={!user}
-            >
-              <UserPlus size={16} />
-              <span>Registrarse</span>
-            </button>
-          )}
-          
-          {canUnregister && (
-            <button
-              onClick={() => onUnregister?.(event.id)}
-              className="btn btn-outline btn-sm flex items-center gap-1 flex-1"
-            >
-              <UserMinus size={16} />
-              <span>Cancelar</span>
-            </button>
-          )}
-          
-          {event.is_registered && !canUnregister && (
-            <div className="text-sm text-success-600 flex items-center gap-1 flex-1 justify-center py-2">
-              <UserPlus size={16} />
-              <span>Registrado</span>
-            </div>
-          )}
-
-          {!user && (
-            <div className="text-sm text-neutral-500 flex-1 text-center py-2">
-              Inicia sesión para registrarte
-            </div>
-          )}
+      {/* Información adicional del evento */}
+      <div className="pt-3 border-t border-neutral-100">
+        <div className="text-sm text-neutral-500">
+          Creado el {formatEventDate(event.created_at)}
         </div>
-      )}
+      </div>
     </div>
   );
 };
