@@ -9,7 +9,8 @@ import {
   Settings, 
   Menu, 
   X, 
-  Flower2
+  Flower2,
+  Calendar
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobile, setMobileMenuOpen }) => {
     { path: '/productos', label: 'Productos', icon: <ShoppingBag size={20} /> },
     { path: '/inventario', label: 'Inventario', icon: <ClipboardList size={20} /> },
     { path: '/proveedores', label: 'Proveedores', icon: <TruckIcon size={20} /> },
+    { path: '/eventos', label: 'Eventos', icon: <Calendar size={20} /> },
     { path: '/reportes', label: 'Reportes', icon: <BarChart3 size={20} /> },
     { path: '/configuracion', label: 'Configuración', icon: <Settings size={20} /> },
   ];

@@ -15,6 +15,7 @@ import ProductDetail from './pages/ProductDetail';
 import Inventory from './pages/Inventory';
 import Suppliers from './pages/Suppliers';
 import SupplierDetail from './pages/SupplierDetail';
+import Events from './pages/Events';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 
@@ -47,6 +48,7 @@ const AppContent: React.FC = () => {
             <Route path="inventario" element={<Inventory />} />
             <Route path="proveedores" element={<Suppliers />} />
             <Route path="proveedores/:id" element={<SupplierDetail />} />
+            <Route path="eventos" element={<Events />} />
             <Route path="reportes" element={<Reports />} />
             <Route path="configuracion" element={<Settings />} />
           </Route>
