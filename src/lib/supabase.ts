@@ -23,6 +23,8 @@ export interface Database {
           location: string | null;
           category: string;
           status: string;
+          max_attendees: number | null;
+          current_attendees: number;
           created_by: string | null;
           created_at: string | null;
           updated_at: string | null;
@@ -36,6 +38,8 @@ export interface Database {
           location?: string | null;
           category: string;
           status?: string;
+          max_attendees?: number | null;
+          current_attendees?: number;
           created_by?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
@@ -49,6 +53,8 @@ export interface Database {
           location?: string | null;
           category?: string;
           status?: string;
+          max_attendees?: number | null;
+          current_attendees?: number;
           created_by?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
