@@ -56,7 +56,7 @@ export const useEvents = () => {
               .eq('event_id', event.id)
               .eq('user_id', user.id)
               .eq('status', 'confirmado')
-              .single();
+              .maybeSingle();
             
             isRegistered = !!attendeeData;
           }
