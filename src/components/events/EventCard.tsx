@@ -83,10 +83,29 @@ const EventCard: React.FC<EventCardProps> = ({
   const canUnregister = event.status === 'proximo' && event.is_registered;
   const isOwner = user?.id === event.created_by;
 
+  // Format dates safely
+  const formatEventDate = (dateString: string) => {
+    try {
+      return format(parseISO(dateString), 'dd MMM yyyy', { locale: es });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Fecha inválida';
+    }
+  };
+
+  const formatEventTime = (dateString: string) => {
+    try {
+      return format(parseISO(dateString), 'HH:mm');
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return '--:--';
+    }
+  };
+
   return (
-    <div className="card hover:shadow-lg transition-all duration-300">
+    <div className="card hover:shadow-lg transition-all duration-300 animate-fade-in">
       <div className="flex justify-between items-start mb-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <span className={`badge border ${getCategoryColor(event.category)}`}>
             {getCategoryLabel(event.category)}
           </span>
@@ -99,13 +118,15 @@ const EventCard: React.FC<EventCardProps> = ({
           <div className="flex gap-1">
             <button
               onClick={() => onEdit?.(event)}
-              className="p-1.5 text-neutral-500 hover:text-primary-600 hover:bg-neutral-100 rounded-md"
+              className="p-1.5 text-neutral-500 hover:text-primary-600 hover:bg-neutral-100 rounded-md transition-colors"
+              title="Editar evento"
             >
               <Edit size={16} />
             </button>
             <button
               onClick={() => onDelete?.(event.id)}
-              className="p-1.5 text-neutral-500 hover:text-error-500 hover:bg-neutral-100 rounded-md"
+              className="p-1.5 text-neutral-500 hover:text-error-500 hover:bg-neutral-100 rounded-md transition-colors"
+              title="Eliminar evento"
             >
               <Trash2 size={16} />
             </button>
@@ -113,37 +134,35 @@ const EventCard: React.FC<EventCardProps> = ({
         )}
       </div>
 
-      <h3 className="font-semibold text-lg mb-2">{event.title}</h3>
+      <h3 className="font-semibold text-lg mb-2 line-clamp-2">{event.title}</h3>
       
       {event.description && (
-        <p className="text-neutral-600 text-sm mb-4 line-clamp-2">{event.description}</p>
+        <p className="text-neutral-600 text-sm mb-4 line-clamp-3">{event.description}</p>
       )}
 
       <div className="space-y-2 mb-4">
         <div className="flex items-center gap-2 text-sm text-neutral-600">
-          <Calendar size={16} />
-          <span>
-            {format(parseISO(event.start_date), 'dd MMM yyyy', { locale: es })}
-          </span>
+          <Calendar size={16} className="flex-shrink-0" />
+          <span>{formatEventDate(event.start_date)}</span>
         </div>
         
         <div className="flex items-center gap-2 text-sm text-neutral-600">
-          <Clock size={16} />
+          <Clock size={16} className="flex-shrink-0" />
           <span>
-            {format(parseISO(event.start_date), 'HH:mm')} - {format(parseISO(event.end_date), 'HH:mm')}
+            {formatEventTime(event.start_date)} - {formatEventTime(event.end_date)}
           </span>
         </div>
         
         {event.location && (
           <div className="flex items-center gap-2 text-sm text-neutral-600">
-            <MapPin size={16} />
-            <span>{event.location}</span>
+            <MapPin size={16} className="flex-shrink-0" />
+            <span className="line-clamp-1">{event.location}</span>
           </div>
         )}
         
         {event.max_attendees && (
           <div className="flex items-center gap-2 text-sm text-neutral-600">
-            <Users size={16} />
+            <Users size={16} className="flex-shrink-0" />
             <span>
               {event.current_attendees} / {event.max_attendees} asistentes
               {isEventFull && <span className="text-error-500 ml-1">(Completo)</span>}
@@ -158,6 +177,7 @@ const EventCard: React.FC<EventCardProps> = ({
             <button
               onClick={() => onRegister?.(event.id)}
               className="btn btn-primary btn-sm flex items-center gap-1 flex-1"
+              disabled={!user}
             >
               <UserPlus size={16} />
               <span>Registrarse</span>
@@ -175,9 +195,15 @@ const EventCard: React.FC<EventCardProps> = ({
           )}
           
           {event.is_registered && !canUnregister && (
-            <div className="text-sm text-success-600 flex items-center gap-1 flex-1 justify-center">
+            <div className="text-sm text-success-600 flex items-center gap-1 flex-1 justify-center py-2">
               <UserPlus size={16} />
               <span>Registrado</span>
+            </div>
+          )}
+
+          {!user && (
+            <div className="text-sm text-neutral-500 flex-1 text-center py-2">
+              Inicia sesión para registrarte
             </div>
           )}
         </div>

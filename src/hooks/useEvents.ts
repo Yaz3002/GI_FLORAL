@@ -16,10 +16,7 @@ export const useEvents = () => {
       
       let query = supabase
         .from('events')
-        .select(`
-          *,
-          event_attendees!inner(user_id, status)
-        `)
+        .select('*')
         .order('start_date', { ascending: true });
 
       // Apply filters
@@ -43,20 +40,36 @@ export const useEvents = () => {
         query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
       }
 
-      const { data, error } = await query;
+      const { data: eventsData, error } = await query;
       
       if (error) throw error;
       
-      // Transform data to include computed fields
-      const transformedEvents = (data || []).map(event => ({
-        ...event,
-        creator_email: '', // Remove creator email for now since we can't join with auth.users
-        is_registered: user ? event.event_attendees?.some(
-          (attendee: any) => attendee.user_id === user.id && attendee.status === 'confirmado'
-        ) : false,
-      }));
+      // For each event, check if current user is registered
+      const eventsWithRegistration = await Promise.all(
+        (eventsData || []).map(async (event) => {
+          let isRegistered = false;
+          
+          if (user) {
+            const { data: attendeeData } = await supabase
+              .from('event_attendees')
+              .select('id')
+              .eq('event_id', event.id)
+              .eq('user_id', user.id)
+              .eq('status', 'confirmado')
+              .single();
+            
+            isRegistered = !!attendeeData;
+          }
+          
+          return {
+            ...event,
+            creator_email: '', // We'll handle this separately if needed
+            is_registered: isRegistered,
+          };
+        })
+      );
       
-      setEvents(transformedEvents);
+      setEvents(eventsWithRegistration);
     } catch (error: any) {
       console.error('Error fetching events:', error);
       toast.error('Error al cargar los eventos');
@@ -144,6 +157,18 @@ export const useEvents = () => {
     }
 
     try {
+      // Check if event is full
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('max_attendees, current_attendees')
+        .eq('id', eventId)
+        .single();
+
+      if (eventData?.max_attendees && eventData.current_attendees >= eventData.max_attendees) {
+        toast.error('El evento está completo');
+        return;
+      }
+
       const { error } = await supabase
         .from('event_attendees')
         .insert([{
@@ -194,19 +219,13 @@ export const useEvents = () => {
     try {
       const { data, error } = await supabase
         .from('event_attendees')
-        .select(`
-          *,
-          users!event_attendees_user_id_fkey(email)
-        `)
+        .select('*')
         .eq('event_id', eventId)
         .eq('status', 'confirmado');
       
       if (error) throw error;
       
-      return (data || []).map(attendee => ({
-        ...attendee,
-        user_email: attendee.users?.email || '',
-      }));
+      return data || [];
     } catch (error: any) {
       console.error('Error fetching attendees:', error);
       toast.error('Error al cargar los asistentes');
@@ -217,18 +236,90 @@ export const useEvents = () => {
   // Update event statuses based on current time
   const updateEventStatuses = async () => {
     try {
-      await supabase.rpc('update_event_status');
-      await fetchEvents();
+      const { error } = await supabase.rpc('update_event_status');
+      if (error) {
+        console.error('Error calling update_event_status function:', error);
+        // If the function doesn't exist, update manually
+        await updateEventStatusesManually();
+      } else {
+        await fetchEvents();
+      }
     } catch (error: any) {
       console.error('Error updating event statuses:', error);
+      // Fallback to manual update
+      await updateEventStatusesManually();
     }
   };
 
-  // Load events on mount
+  // Manual event status update as fallback
+  const updateEventStatusesManually = async () => {
+    try {
+      const now = new Date().toISOString();
+      
+      // Update events to 'en_curso' if they have started but not ended
+      await supabase
+        .from('events')
+        .update({ status: 'en_curso' })
+        .lte('start_date', now)
+        .gt('end_date', now)
+        .eq('status', 'proximo');
+      
+      // Update events to 'finalizado' if they have ended
+      await supabase
+        .from('events')
+        .update({ status: 'finalizado' })
+        .lte('end_date', now)
+        .in('status', ['proximo', 'en_curso']);
+      
+      await fetchEvents();
+    } catch (error: any) {
+      console.error('Error in manual status update:', error);
+    }
+  };
+
+  // Get event by ID
+  const getEventById = (id: string) => {
+    return events.find(event => event.id === id);
+  };
+
+  // Load events on mount and set up real-time updates
   useEffect(() => {
     if (user) {
       fetchEvents();
       updateEventStatuses();
+      
+      // Set up real-time subscription for events
+      const eventsSubscription = supabase
+        .channel('events-changes')
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'events' 
+          }, 
+          () => {
+            fetchEvents();
+          }
+        )
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'event_attendees' 
+          }, 
+          () => {
+            fetchEvents();
+          }
+        )
+        .subscribe();
+
+      // Update statuses every 5 minutes
+      const statusUpdateInterval = setInterval(updateEventStatuses, 5 * 60 * 1000);
+
+      return () => {
+        eventsSubscription.unsubscribe();
+        clearInterval(statusUpdateInterval);
+      };
     }
   }, [user]);
 
@@ -243,5 +334,6 @@ export const useEvents = () => {
     unregisterFromEvent,
     getEventAttendees,
     updateEventStatuses,
+    getEventById,
   };
 };

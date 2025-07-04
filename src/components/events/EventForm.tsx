@@ -19,13 +19,26 @@ const EventForm: React.FC<EventFormProps> = ({ event, onSubmit, onCancel }) => {
     max_attendees: null as number | null,
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (event) {
+      // Format dates for datetime-local input
+      const formatDateForInput = (dateString: string) => {
+        try {
+          const date = new Date(dateString);
+          return date.toISOString().slice(0, 16);
+        } catch (error) {
+          console.error('Error formatting date:', error);
+          return '';
+        }
+      };
+
       setFormData({
         title: event.title,
         description: event.description,
-        start_date: event.start_date.slice(0, 16), // Format for datetime-local input
-        end_date: event.end_date.slice(0, 16),
+        start_date: formatDateForInput(event.start_date),
+        end_date: formatDateForInput(event.end_date),
         location: event.location,
         category: event.category,
         status: event.status,
@@ -33,6 +46,43 @@ const EventForm: React.FC<EventFormProps> = ({ event, onSubmit, onCancel }) => {
       });
     }
   }, [event]);
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.title.trim()) {
+      newErrors.title = 'El título es requerido';
+    }
+
+    if (!formData.start_date) {
+      newErrors.start_date = 'La fecha de inicio es requerida';
+    }
+
+    if (!formData.end_date) {
+      newErrors.end_date = 'La fecha de fin es requerida';
+    }
+
+    if (formData.start_date && formData.end_date) {
+      const startDate = new Date(formData.start_date);
+      const endDate = new Date(formData.end_date);
+      
+      if (startDate >= endDate) {
+        newErrors.end_date = 'La fecha de fin debe ser posterior a la fecha de inicio';
+      }
+
+      // Check if start date is in the past (only for new events)
+      if (!event && startDate < new Date()) {
+        newErrors.start_date = 'La fecha de inicio no puede ser en el pasado';
+      }
+    }
+
+    if (formData.max_attendees !== null && formData.max_attendees < 1) {
+      newErrors.max_attendees = 'El número máximo de asistentes debe ser mayor a 0';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -45,22 +95,29 @@ const EventForm: React.FC<EventFormProps> = ({ event, onSubmit, onCancel }) => {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
+
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate dates
-    if (new Date(formData.start_date) >= new Date(formData.end_date)) {
-      alert('La fecha de fin debe ser posterior a la fecha de inicio');
+    if (!validateForm()) {
       return;
     }
     
-    onSubmit({
-      ...formData,
-      start_date: new Date(formData.start_date).toISOString(),
-      end_date: new Date(formData.end_date).toISOString(),
-    });
+    try {
+      onSubmit({
+        ...formData,
+        start_date: new Date(formData.start_date).toISOString(),
+        end_date: new Date(formData.end_date).toISOString(),
+      });
+    } catch (error) {
+      console.error('Error submitting form:', error);
+    }
   };
 
   const categoryOptions = [
@@ -75,16 +132,19 @@ const EventForm: React.FC<EventFormProps> = ({ event, onSubmit, onCancel }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="form-group">
-        <label htmlFor="title" className="form-label">Título del Evento</label>
+        <label htmlFor="title" className="form-label">
+          Título del Evento <span className="text-error-500">*</span>
+        </label>
         <input
           type="text"
           id="title"
           name="title"
-          className="input"
+          className={`input ${errors.title ? 'border-error-500' : ''}`}
           value={formData.title}
           onChange={handleChange}
-          required
+          placeholder="Ej: Taller de Arreglos Florales"
         />
+        {errors.title && <p className="text-error-500 text-sm mt-1">{errors.title}</p>}
       </div>
 
       <div className="form-group">
@@ -102,29 +162,33 @@ const EventForm: React.FC<EventFormProps> = ({ event, onSubmit, onCancel }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="form-group">
-          <label htmlFor="start_date" className="form-label">Fecha y Hora de Inicio</label>
+          <label htmlFor="start_date" className="form-label">
+            Fecha y Hora de Inicio <span className="text-error-500">*</span>
+          </label>
           <input
             type="datetime-local"
             id="start_date"
             name="start_date"
-            className="input"
+            className={`input ${errors.start_date ? 'border-error-500' : ''}`}
             value={formData.start_date}
             onChange={handleChange}
-            required
           />
+          {errors.start_date && <p className="text-error-500 text-sm mt-1">{errors.start_date}</p>}
         </div>
 
         <div className="form-group">
-          <label htmlFor="end_date" className="form-label">Fecha y Hora de Fin</label>
+          <label htmlFor="end_date" className="form-label">
+            Fecha y Hora de Fin <span className="text-error-500">*</span>
+          </label>
           <input
             type="datetime-local"
             id="end_date"
             name="end_date"
-            className="input"
+            className={`input ${errors.end_date ? 'border-error-500' : ''}`}
             value={formData.end_date}
             onChange={handleChange}
-            required
           />
+          {errors.end_date && <p className="text-error-500 text-sm mt-1">{errors.end_date}</p>}
         </div>
       </div>
 
@@ -143,14 +207,15 @@ const EventForm: React.FC<EventFormProps> = ({ event, onSubmit, onCancel }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="form-group">
-          <label htmlFor="category" className="form-label">Categoría</label>
+          <label htmlFor="category" className="form-label">
+            Categoría <span className="text-error-500">*</span>
+          </label>
           <select
             id="category"
             name="category"
             className="select"
             value={formData.category}
             onChange={handleChange}
-            required
           >
             {categoryOptions.map(option => (
               <option key={option.value} value={option.value}>
@@ -161,17 +226,20 @@ const EventForm: React.FC<EventFormProps> = ({ event, onSubmit, onCancel }) => {
         </div>
 
         <div className="form-group">
-          <label htmlFor="max_attendees" className="form-label">Máximo de Asistentes (opcional)</label>
+          <label htmlFor="max_attendees" className="form-label">
+            Máximo de Asistentes (opcional)
+          </label>
           <input
             type="number"
             id="max_attendees"
             name="max_attendees"
-            className="input"
+            className={`input ${errors.max_attendees ? 'border-error-500' : ''}`}
             value={formData.max_attendees || ''}
             onChange={handleChange}
             min="1"
             placeholder="Sin límite"
           />
+          {errors.max_attendees && <p className="text-error-500 text-sm mt-1">{errors.max_attendees}</p>}
         </div>
       </div>
 

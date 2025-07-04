@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useEvents } from '../hooks/useEvents';
 import { Event, EventFilters } from '../types/events';
 import EventCard from '../components/events/EventCard';
@@ -7,7 +7,8 @@ import EventFiltersComponent from '../components/events/EventFilters';
 import EventCalendar from '../components/events/EventCalendar';
 import Modal from '../components/common/Modal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
-import { Plus, Calendar, Grid, Bell } from 'lucide-react';
+import { Plus, Calendar, Grid, Bell, RefreshCw } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const Events: React.FC = () => {
   const {
@@ -19,6 +20,7 @@ const Events: React.FC = () => {
     deleteEvent,
     registerForEvent,
     unregisterFromEvent,
+    updateEventStatuses,
   } = useEvents();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,6 +29,7 @@ const Events: React.FC = () => {
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid');
   const [calendarView, setCalendarView] = useState<'month' | 'week'>('month');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Handle opening the form modal for creating or editing
   const handleOpenModal = (event?: Event) => {
@@ -43,6 +46,7 @@ const Events: React.FC = () => {
         await createEvent(eventData);
       }
       setIsModalOpen(false);
+      setCurrentEvent(undefined);
     } catch (error) {
       console.error('Error submitting event:', error);
     }
@@ -56,8 +60,12 @@ const Events: React.FC = () => {
 
   const confirmDelete = async () => {
     if (eventToDelete) {
-      await deleteEvent(eventToDelete);
-      setEventToDelete(null);
+      try {
+        await deleteEvent(eventToDelete);
+        setEventToDelete(null);
+      } catch (error) {
+        console.error('Error deleting event:', error);
+      }
     }
   };
 
@@ -88,6 +96,21 @@ const Events: React.FC = () => {
     handleOpenModal(event);
   };
 
+  // Manual refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await updateEventStatuses();
+      await fetchEvents();
+      toast.success('Eventos actualizados');
+    } catch (error) {
+      console.error('Error refreshing events:', error);
+      toast.error('Error al actualizar eventos');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // Get upcoming events for notifications
   const upcomingEvents = events.filter(event => {
     const eventDate = new Date(event.start_date);
@@ -98,6 +121,15 @@ const Events: React.FC = () => {
            eventDate >= now && 
            eventDate <= threeDaysFromNow;
   });
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      updateEventStatuses();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [updateEventStatuses]);
 
   if (loading) {
     return (
@@ -116,6 +148,17 @@ const Events: React.FC = () => {
         <h1 className="text-2xl font-bold">Calendario de Eventos</h1>
         
         <div className="flex items-center gap-3">
+          {/* Refresh button */}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="btn btn-outline btn-sm flex items-center gap-2"
+            title="Actualizar eventos"
+          >
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Actualizar</span>
+          </button>
+
           {/* View toggle */}
           <div className="flex items-center gap-1 bg-neutral-100 rounded-md p-1">
             <button
@@ -154,7 +197,7 @@ const Events: React.FC = () => {
 
       {/* Upcoming events notification */}
       {upcomingEvents.length > 0 && (
-        <div className="bg-primary-50 border border-primary-200 text-primary-700 px-4 py-3 rounded-md mb-6">
+        <div className="bg-primary-50 border border-primary-200 text-primary-700 px-4 py-3 rounded-md mb-6 animate-fade-in">
           <div className="flex items-center gap-2 mb-2">
             <Bell size={20} />
             <h3 className="font-medium">Eventos Próximos</h3>
@@ -162,7 +205,7 @@ const Events: React.FC = () => {
           <p className="text-sm">
             Tienes {upcomingEvents.length} evento{upcomingEvents.length !== 1 ? 's' : ''} en los próximos 3 días:
           </p>
-          <ul className="mt-2 text-sm">
+          <ul className="mt-2 text-sm space-y-1">
             {upcomingEvents.slice(0, 3).map(event => (
               <li key={event.id} className="flex items-center gap-2">
                 <span>•</span>
@@ -172,6 +215,11 @@ const Events: React.FC = () => {
                 </span>
               </li>
             ))}
+            {upcomingEvents.length > 3 && (
+              <li className="text-primary-600 text-xs">
+                +{upcomingEvents.length - 3} eventos más
+              </li>
+            )}
           </ul>
         </div>
       )}
@@ -221,14 +269,20 @@ const Events: React.FC = () => {
       {/* Event Form Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setCurrentEvent(undefined);
+        }}
         title={currentEvent ? 'Editar Evento' : 'Nuevo Evento'}
         size="lg"
       >
         <EventForm
           event={currentEvent}
           onSubmit={handleSubmitEvent}
-          onCancel={() => setIsModalOpen(false)}
+          onCancel={() => {
+            setIsModalOpen(false);
+            setCurrentEvent(undefined);
+          }}
         />
       </Modal>
 
