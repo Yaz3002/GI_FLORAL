@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './useAuth';
-import { Event, EventAttendee, EventFilters } from '../types/events';
+import { Event, EventFilters } from '../types/events';
 import toast from 'react-hot-toast';
 
 export const useEvents = () => {
@@ -36,15 +36,16 @@ export const useEvents = () => {
         query = query.eq('status', filters.status);
       }
       
-      if (filters?.search) {
-        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%,location.ilike.%${filters.search}%`);
+      // Enhanced search functionality - case insensitive search across multiple fields
+      if (filters?.search && filters.search.trim()) {
+        const searchTerm = filters.search.trim();
+        query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,location.ilike.%${searchTerm}%`);
       }
 
       const { data: eventsData, error } = await query;
       
       if (error) throw error;
       
-      // Simply set events without registration check since we removed that functionality
       setEvents(eventsData || []);
     } catch (error: any) {
       console.error('Error fetching events:', error);

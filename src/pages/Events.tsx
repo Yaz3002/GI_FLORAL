@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useEvents } from '../hooks/useEvents';
 import { Event, EventFilters } from '../types/events';
 import EventCard from '../components/events/EventCard';
@@ -7,7 +7,7 @@ import EventFiltersComponent from '../components/events/EventFilters';
 import EventCalendar from '../components/events/EventCalendar';
 import Modal from '../components/common/Modal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
-import { Plus, Calendar, Grid, Bell, RefreshCw, Search } from 'lucide-react';
+import { Plus, Calendar, Grid, Bell, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Events: React.FC = () => {
@@ -28,7 +28,7 @@ const Events: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid');
   const [calendarView, setCalendarView] = useState<'month' | 'week'>('month');
   const [refreshing, setRefreshing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [currentFilters, setCurrentFilters] = useState<EventFilters>({});
 
   // Handle opening the form modal for creating or editing
   const handleOpenModal = (event?: Event) => {
@@ -68,23 +68,22 @@ const Events: React.FC = () => {
     }
   };
 
-  // Handle filter changes
-  const handleFilterChange = (filters: EventFilters) => {
-    fetchEvents(filters);
-  };
-
-  // Handle search
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchTerm(value);
+  // Handle filter changes with debouncing for search
+  const handleFilterChange = useCallback((filters: EventFilters) => {
+    setCurrentFilters(filters);
     
-    // Debounce search
-    const timeoutId = setTimeout(() => {
-      fetchEvents({ search: value });
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  };
+    // If there's a search term, debounce the API call
+    if (filters.search !== undefined) {
+      const timeoutId = setTimeout(() => {
+        fetchEvents(filters);
+      }, 300);
+      
+      return () => clearTimeout(timeoutId);
+    } else {
+      // For other filters, apply immediately
+      fetchEvents(filters);
+    }
+  }, [fetchEvents]);
 
   // Handle calendar event click
   const handleCalendarEventClick = (event: Event) => {
@@ -96,7 +95,7 @@ const Events: React.FC = () => {
     setRefreshing(true);
     try {
       await updateEventStatuses();
-      await fetchEvents();
+      await fetchEvents(currentFilters);
       toast.success('Eventos actualizados');
     } catch (error) {
       console.error('Error refreshing events:', error);
@@ -219,23 +218,7 @@ const Events: React.FC = () => {
         </div>
       )}
 
-      {/* Quick Search */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Search className="w-4 h-4 text-neutral-400" />
-          </div>
-          <input
-            type="search"
-            className="input pl-10"
-            placeholder="Buscar eventos por título, descripción o ubicación..."
-            value={searchTerm}
-            onChange={handleSearch}
-          />
-        </div>
-      </div>
-
-      {/* Filters */}
+      {/* Filters - This is the main search functionality */}
       <EventFiltersComponent onFilterChange={handleFilterChange} />
 
       {/* Content */}
@@ -264,7 +247,7 @@ const Events: React.FC = () => {
             <div className="text-center py-12 bg-neutral-50 rounded-lg">
               <Calendar className="mx-auto h-12 w-12 text-neutral-400 mb-4" />
               <p className="text-neutral-500 mb-4">
-                {searchTerm ? 'No se encontraron eventos que coincidan con tu búsqueda' : 'No hay eventos programados'}
+                {currentFilters.search ? 'No se encontraron eventos que coincidan con tu búsqueda' : 'No hay eventos programados'}
               </p>
               <button
                 className="btn btn-primary"
