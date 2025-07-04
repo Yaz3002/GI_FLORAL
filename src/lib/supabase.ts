@@ -13,6 +13,90 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export interface Database {
   public: {
     Tables: {
+      events: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          start_date: string;
+          end_date: string;
+          location: string | null;
+          category: string;
+          status: string;
+          created_by: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description?: string | null;
+          start_date: string;
+          end_date: string;
+          location?: string | null;
+          category: string;
+          status?: string;
+          created_by?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string | null;
+          start_date?: string;
+          end_date?: string;
+          location?: string | null;
+          category?: string;
+          status?: string;
+          created_by?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
+      user_settings: {
+        Row: {
+          id: string;
+          user_id: string;
+          settings: any;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          settings?: any;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          settings?: any;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
+      users: {
+        Row: {
+          id: string;
+          email: string;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id: string;
+          email: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
       categories: {
         Row: {
           id: string;
