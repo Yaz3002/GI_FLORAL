@@ -18,7 +18,6 @@ export const useEvents = () => {
         .from('events')
         .select(`
           *,
-          users!events_created_by_fkey(email),
           event_attendees!inner(user_id, status)
         `)
         .order('start_date', { ascending: true });
@@ -51,7 +50,7 @@ export const useEvents = () => {
       // Transform data to include computed fields
       const transformedEvents = (data || []).map(event => ({
         ...event,
-        creator_email: event.users?.email || '',
+        creator_email: '', // Remove creator email for now since we can't join with auth.users
         is_registered: user ? event.event_attendees?.some(
           (attendee: any) => attendee.user_id === user.id && attendee.status === 'confirmado'
         ) : false,
