@@ -1,18 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Sun, Moon, Globe, Type, Layout, Check } from 'lucide-react';
+import { Bell, Sun, Moon, Globe, Type, Layout, Check, TestTube, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useNotifications } from '../hooks/useNotifications';
 import toast from 'react-hot-toast';
 
 // Tipos para las configuraciones
-interface NotificationSettings {
-  pushNotifications: boolean;
-  lowStockAlerts: boolean;
-  inventoryMovements: boolean;
-  systemAlerts: boolean;
-  emailNotifications: boolean;
-  soundEnabled: boolean;
-}
-
 interface AppearanceSettings {
   theme: 'light' | 'dark' | 'system';
   fontSize: 'small' | 'medium' | 'large';
@@ -20,15 +12,6 @@ interface AppearanceSettings {
 }
 
 // Configuraciones por defecto
-const defaultNotificationSettings: NotificationSettings = {
-  pushNotifications: true,
-  lowStockAlerts: true,
-  inventoryMovements: true,
-  systemAlerts: false,
-  emailNotifications: true,
-  soundEnabled: true,
-};
-
 const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'light',
   fontSize: 'medium',
@@ -37,10 +20,19 @@ const defaultAppearanceSettings: AppearanceSettings = {
 
 const Settings: React.FC = () => {
   const { user } = useAuth();
+  const { 
+    settings: notificationSettings, 
+    saveSettings: saveNotificationSettings,
+    permission,
+    isSupported,
+    requestPermission,
+    testNotification,
+    getNotificationStatus
+  } = useNotifications();
+  
   const [activeTab, setActiveTab] = useState<'notifications' | 'appearance'>('notifications');
   
   // Estados para configuraciones
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
   const [appearanceSettings, setAppearanceSettings] = useState<AppearanceSettings>(defaultAppearanceSettings);
   
   // Estados para UI
@@ -69,12 +61,7 @@ const Settings: React.FC = () => {
       setIsLoading(true);
       
       // Cargar desde localStorage
-      const savedNotifications = localStorage.getItem('notificationSettings');
       const savedAppearance = localStorage.getItem('appearanceSettings');
-      
-      if (savedNotifications) {
-        setNotificationSettings(JSON.parse(savedNotifications));
-      }
       
       if (savedAppearance) {
         setAppearanceSettings(JSON.parse(savedAppearance));
@@ -96,7 +83,6 @@ const Settings: React.FC = () => {
       setIsLoading(true);
       
       // Guardar en localStorage
-      localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
       localStorage.setItem('appearanceSettings', JSON.stringify(appearanceSettings));
       
       setHasUnsavedChanges(false);
@@ -135,24 +121,10 @@ const Settings: React.FC = () => {
   /**
    * Manejar cambios en configuraciones de notificaciones
    */
-  const handleNotificationChange = (key: keyof NotificationSettings) => {
-    setNotificationSettings(prev => {
-      const newSettings = { ...prev, [key]: !prev[key] };
-      setHasUnsavedChanges(true);
-      
-      // Feedback inmediato para algunas configuraciones
-      if (key === 'soundEnabled') {
-        if (newSettings.soundEnabled) {
-          // Reproducir sonido de prueba
-          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
-          audio.volume = 0.1;
-          audio.play().catch(() => {}); // Ignorar errores de reproducción
-        }
-        toast.success(`Sonidos ${newSettings.soundEnabled ? 'activados' : 'desactivados'}`);
-      }
-      
-      return newSettings;
-    });
+  const handleNotificationChange = (key: keyof typeof notificationSettings) => {
+    const newSettings = { ...notificationSettings, [key]: !notificationSettings[key] };
+    saveNotificationSettings(newSettings);
+    setHasUnsavedChanges(true);
   };
 
   /**
@@ -187,10 +159,26 @@ const Settings: React.FC = () => {
    * Restablecer configuraciones a valores por defecto
    */
   const resetToDefaults = () => {
-    setNotificationSettings(defaultNotificationSettings);
     setAppearanceSettings(defaultAppearanceSettings);
     setHasUnsavedChanges(true);
     toast.success('Configuraciones restablecidas a valores por defecto');
+  };
+
+  /**
+   * Solicitar permisos de notificación
+   */
+  const handleRequestPermission = async () => {
+    const granted = await requestPermission();
+    if (granted) {
+      setHasUnsavedChanges(true);
+    }
+  };
+
+  /**
+   * Probar notificaciones
+   */
+  const handleTestNotification = async () => {
+    await testNotification();
   };
 
   /**
@@ -256,6 +244,8 @@ const Settings: React.FC = () => {
     </div>
   );
 
+  const notificationStatus = getNotificationStatus();
+
   if (isLoading) {
     return (
       <div className="page-transition">
@@ -312,7 +302,7 @@ const Settings: React.FC = () => {
               >
                 <Bell size={18} />
                 <span>Notificaciones</span>
-                {hasUnsavedChanges && activeTab === 'notifications' && (
+                {!notificationStatus.enabled && (
                   <div className="w-2 h-2 bg-warning-500 rounded-full ml-auto"></div>
                 )}
               </button>
@@ -345,6 +335,48 @@ const Settings: React.FC = () => {
                   <Bell className="text-primary-500" size={24} />
                   <h2 className="text-xl font-semibold">Configuración de Notificaciones</h2>
                 </div>
+
+                {/* Estado de las notificaciones */}
+                <div className="mb-6 p-4 bg-neutral-50 rounded-lg">
+                  <h3 className="font-medium mb-2">Estado del Sistema</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${isSupported ? 'bg-success-500' : 'bg-error-500'}`}></div>
+                      <span>Soporte del navegador: {isSupported ? 'Sí' : 'No'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${
+                        permission === 'granted' ? 'bg-success-500' : 
+                        permission === 'denied' ? 'bg-error-500' : 'bg-warning-500'
+                      }`}></div>
+                      <span>Permisos: {
+                        permission === 'granted' ? 'Concedidos' : 
+                        permission === 'denied' ? 'Denegados' : 'Pendientes'
+                      }</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 mt-4">
+                    {permission !== 'granted' && (
+                      <button
+                        onClick={handleRequestPermission}
+                        className="btn btn-primary btn-sm"
+                        disabled={!isSupported}
+                      >
+                        Solicitar Permisos
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={handleTestNotification}
+                      className="btn btn-outline btn-sm flex items-center gap-1"
+                      disabled={!notificationStatus.enabled}
+                    >
+                      <TestTube size={14} />
+                      <span>Probar Notificación</span>
+                    </button>
+                  </div>
+                </div>
                 
                 <div className="space-y-6">
                   {/* Notificaciones Push */}
@@ -354,8 +386,29 @@ const Settings: React.FC = () => {
                       <Toggle
                         checked={notificationSettings.pushNotifications}
                         onChange={() => handleNotificationChange('pushNotifications')}
+                        disabled={!isSupported || permission === 'denied'}
                         label="Activar notificaciones push"
                         description="Recibe notificaciones en tiempo real en tu navegador"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Notificaciones de Eventos */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Eventos</h3>
+                    <div className="space-y-1">
+                      <Toggle
+                        checked={notificationSettings.eventReminders}
+                        onChange={() => handleNotificationChange('eventReminders')}
+                        label="Recordatorios de eventos"
+                        description="Notificaciones antes de que comiencen los eventos"
+                      />
+                      
+                      <Toggle
+                        checked={notificationSettings.eventUpdates}
+                        onChange={() => handleNotificationChange('eventUpdates')}
+                        label="Actualizaciones de eventos"
+                        description="Notificaciones cuando los eventos sean modificados o cancelados"
                       />
                     </div>
                   </div>

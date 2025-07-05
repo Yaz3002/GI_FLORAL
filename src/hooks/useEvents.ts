@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './useAuth';
+import { useNotifications } from './useNotifications';
 import { Event, EventFilters } from '../types/events';
 import toast from 'react-hot-toast';
 
 export const useEvents = () => {
   const { user } = useAuth();
+  const { 
+    scheduleEventReminder, 
+    notifyEventUpdate, 
+    checkUpcomingEvents,
+    settings: notificationSettings 
+  } = useNotifications();
+  
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,6 +55,12 @@ export const useEvents = () => {
       if (error) throw error;
       
       setEvents(eventsData || []);
+      
+      // Check for upcoming events and send notifications
+      if (eventsData && notificationSettings.eventReminders) {
+        checkUpcomingEvents(eventsData);
+      }
+      
     } catch (error: any) {
       console.error('Error fetching events:', error);
       toast.error('Error al cargar los eventos');
@@ -70,6 +84,13 @@ export const useEvents = () => {
       if (error) throw error;
       
       toast.success('Evento creado exitosamente');
+      
+      // Schedule reminder for new event
+      if (data && notificationSettings.eventReminders) {
+        scheduleEventReminder(data, 24); // 24 hours before
+        scheduleEventReminder(data, 1);  // 1 hour before
+      }
+      
       await fetchEvents();
       return data;
     } catch (error: any) {
@@ -99,6 +120,12 @@ export const useEvents = () => {
       if (error) throw error;
       
       toast.success('Evento actualizado exitosamente');
+      
+      // Notify about event update
+      if (notificationSettings.eventUpdates) {
+        notifyEventUpdate(event, 'updated');
+      }
+      
       await fetchEvents();
     } catch (error: any) {
       console.error('Error updating event:', error);
@@ -110,6 +137,9 @@ export const useEvents = () => {
   // Delete event
   const deleteEvent = async (id: string) => {
     try {
+      // Get event details before deletion for notification
+      const eventToDelete = events.find(e => e.id === id);
+      
       const { error } = await supabase
         .from('events')
         .delete()
@@ -118,6 +148,12 @@ export const useEvents = () => {
       if (error) throw error;
       
       toast.success('Evento eliminado exitosamente');
+      
+      // Notify about event cancellation
+      if (eventToDelete && notificationSettings.eventUpdates) {
+        notifyEventUpdate(eventToDelete, 'cancelled');
+      }
+      
       await fetchEvents();
     } catch (error: any) {
       console.error('Error deleting event:', error);
@@ -129,44 +165,65 @@ export const useEvents = () => {
   // Update event statuses based on current time
   const updateEventStatuses = async () => {
     try {
-      const { error } = await supabase.rpc('update_event_status');
-      if (error) {
-        console.error('Error calling update_event_status function:', error);
-        // If the function doesn't exist, update manually
-        await updateEventStatusesManually();
-      } else {
-        await fetchEvents();
+      const now = new Date().toISOString();
+      
+      // Get events that need status updates
+      const { data: eventsToUpdate, error: fetchError } = await supabase
+        .from('events')
+        .select('*')
+        .or(`and(start_date.lte.${now},end_date.gt.${now},status.eq.proximo),and(end_date.lte.${now},status.in.(proximo,en_curso))`);
+      
+      if (fetchError) throw fetchError;
+      
+      if (eventsToUpdate && eventsToUpdate.length > 0) {
+        // Update events to 'en_curso' if they have started but not ended
+        const eventsStarting = eventsToUpdate.filter(e => 
+          new Date(e.start_date) <= new Date() && 
+          new Date(e.end_date) > new Date() && 
+          e.status === 'proximo'
+        );
+        
+        // Update events to 'finalizado' if they have ended
+        const eventsEnding = eventsToUpdate.filter(e => 
+          new Date(e.end_date) <= new Date() && 
+          ['proximo', 'en_curso'].includes(e.status)
+        );
+        
+        // Batch update starting events
+        if (eventsStarting.length > 0) {
+          const { error: startError } = await supabase
+            .from('events')
+            .update({ status: 'en_curso' })
+            .in('id', eventsStarting.map(e => e.id));
+          
+          if (startError) throw startError;
+          
+          // Notify about events starting
+          if (notificationSettings.eventUpdates) {
+            eventsStarting.forEach(event => {
+              notifyEventUpdate(event, 'starting');
+            });
+          }
+        }
+        
+        // Batch update ending events
+        if (eventsEnding.length > 0) {
+          const { error: endError } = await supabase
+            .from('events')
+            .update({ status: 'finalizado' })
+            .in('id', eventsEnding.map(e => e.id));
+          
+          if (endError) throw endError;
+        }
+        
+        // Refresh events if any updates were made
+        if (eventsStarting.length > 0 || eventsEnding.length > 0) {
+          await fetchEvents();
+        }
       }
     } catch (error: any) {
       console.error('Error updating event statuses:', error);
-      // Fallback to manual update
-      await updateEventStatusesManually();
-    }
-  };
-
-  // Manual event status update as fallback
-  const updateEventStatusesManually = async () => {
-    try {
-      const now = new Date().toISOString();
-      
-      // Update events to 'en_curso' if they have started but not ended
-      await supabase
-        .from('events')
-        .update({ status: 'en_curso' })
-        .lte('start_date', now)
-        .gt('end_date', now)
-        .eq('status', 'proximo');
-      
-      // Update events to 'finalizado' if they have ended
-      await supabase
-        .from('events')
-        .update({ status: 'finalizado' })
-        .lte('end_date', now)
-        .in('status', ['proximo', 'en_curso']);
-      
-      await fetchEvents();
-    } catch (error: any) {
-      console.error('Error in manual status update:', error);
+      // Don't show error toast for automatic status updates
     }
   };
 
@@ -190,7 +247,8 @@ export const useEvents = () => {
             schema: 'public', 
             table: 'events' 
           }, 
-          () => {
+          (payload) => {
+            console.log('Event change detected:', payload);
             fetchEvents();
           }
         )
@@ -199,9 +257,17 @@ export const useEvents = () => {
       // Update statuses every 5 minutes
       const statusUpdateInterval = setInterval(updateEventStatuses, 5 * 60 * 1000);
 
+      // Check for upcoming events every hour
+      const notificationInterval = setInterval(() => {
+        if (events.length > 0) {
+          checkUpcomingEvents(events);
+        }
+      }, 60 * 60 * 1000);
+
       return () => {
         eventsSubscription.unsubscribe();
         clearInterval(statusUpdateInterval);
+        clearInterval(notificationInterval);
       };
     }
   }, [user]);
