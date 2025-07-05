@@ -1,12 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { EventFilters, EventCategory, EventStatus } from '../../types/events';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, RefreshCw } from 'lucide-react';
 
 interface EventFiltersProps {
   onFilterChange: (filters: EventFilters) => void;
+  loading?: boolean;
 }
 
-const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) => {
+const EventFiltersComponent: React.FC<EventFiltersProps> = ({ 
+  onFilterChange, 
+  loading = false 
+}) => {
   const [filters, setFilters] = useState<EventFilters>({
     startDate: '',
     endDate: '',
@@ -17,17 +21,32 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
 
   const [searchInput, setSearchInput] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+
+  // Check if any filters are active
+  useEffect(() => {
+    const active = !!(
+      filters.search || 
+      filters.startDate || 
+      filters.endDate || 
+      (filters.category && filters.category !== 'all') || 
+      (filters.status && filters.status !== 'all')
+    );
+    setHasActiveFilters(active);
+  }, [filters]);
 
   // Debounced search handler
   const debouncedSearch = useCallback((searchTerm: string) => {
-    const newFilters = {
-      ...filters,
-      search: searchTerm.trim() || undefined,
-    };
-    
-    setFilters(newFilters);
-    onFilterChange(newFilters);
-  }, [filters, onFilterChange]);
+    const timeoutId = setTimeout(() => {
+      setFilters(prev => ({
+        ...prev,
+        search: searchTerm.trim() || undefined,
+      }));
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   // Handle search input changes with real-time feedback
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,38 +54,51 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
     setSearchInput(value);
     
     // Debounce the actual search
-    const timeoutId = setTimeout(() => {
-      debouncedSearch(value);
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
+    debouncedSearch(value);
   };
 
   // Clear search
   const clearSearch = () => {
     setSearchInput('');
-    const newFilters = {
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       search: undefined,
-    };
-    setFilters(newFilters);
-    onFilterChange(newFilters);
+    }));
   };
 
   // Handle other filter changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const newFilters = {
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       [name]: value === '' || value === 'all' ? undefined : value,
-    };
+    }));
+  };
+
+  // Apply filters
+  const handleApplyFilters = async () => {
+    if (!hasActiveFilters) return;
     
-    setFilters(newFilters);
-    onFilterChange(newFilters);
+    setIsApplying(true);
+    try {
+      // Clean filters object - remove undefined values
+      const cleanFilters = Object.entries(filters).reduce((acc, [key, value]) => {
+        if (value !== undefined && value !== '' && value !== 'all') {
+          acc[key as keyof EventFilters] = value;
+        }
+        return acc;
+      }, {} as EventFilters);
+
+      onFilterChange(cleanFilters);
+    } catch (error) {
+      console.error('Error applying filters:', error);
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   // Reset all filters
-  const handleReset = () => {
+  const handleClearAllFilters = () => {
     const resetFilters = {
       startDate: '',
       endDate: '',
@@ -77,15 +109,18 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
     
     setFilters(resetFilters);
     setSearchInput('');
+    
+    // Clear URL parameters and show all events
     onFilterChange({});
   };
 
-  // Check if any filters are active
-  const hasActiveFilters = filters.search || 
-                          filters.startDate || 
-                          filters.endDate || 
-                          (filters.category && filters.category !== 'all') || 
-                          (filters.status && filters.status !== 'all');
+  // Auto-apply search filter (for real-time search experience)
+  useEffect(() => {
+    if (filters.search !== undefined) {
+      const searchOnlyFilters = { search: filters.search };
+      onFilterChange(searchOnlyFilters);
+    }
+  }, [filters.search, onFilterChange]);
 
   const categoryOptions = [
     { value: 'all', label: 'Todas las categorías' },
@@ -112,7 +147,7 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
           <Filter size={20} className="text-primary-500" />
           <h3 className="font-semibold text-lg">Filtrar Eventos</h3>
           {hasActiveFilters && (
-            <span className="badge badge-primary text-xs">
+            <span className="badge badge-primary text-xs animate-fade-in">
               Filtros activos
             </span>
           )}
@@ -120,8 +155,9 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
         
         {hasActiveFilters && (
           <button
-            onClick={handleReset}
-            className="btn btn-outline btn-sm flex items-center gap-1"
+            onClick={handleClearAllFilters}
+            className="btn btn-outline btn-sm flex items-center gap-1 hover:bg-error-50 hover:border-error-300 hover:text-error-600 transition-colors"
+            disabled={loading}
           >
             <X size={14} />
             <span>Limpiar Todo</span>
@@ -153,19 +189,21 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
               onChange={handleSearchChange}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
+              disabled={loading}
             />
             {searchInput && (
               <button
                 onClick={clearSearch}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-neutral-600"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-neutral-600 transition-colors"
                 title="Limpiar búsqueda"
+                disabled={loading}
               >
                 <X className="w-4 h-4" />
               </button>
             )}
           </div>
           {searchInput && (
-            <p className="text-sm text-neutral-500 mt-1">
+            <p className="text-sm text-neutral-500 mt-1 animate-fade-in">
               Buscando: "{searchInput}"
             </p>
           )}
@@ -182,6 +220,7 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
               className="input"
               value={filters.startDate}
               onChange={handleChange}
+              disabled={loading}
             />
           </div>
 
@@ -194,6 +233,7 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
               className="input"
               value={filters.endDate}
               onChange={handleChange}
+              disabled={loading}
             />
           </div>
 
@@ -205,6 +245,7 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
               className="select"
               value={filters.category}
               onChange={handleChange}
+              disabled={loading}
             >
               {categoryOptions.map(option => (
                 <option key={option.value} value={option.value}>
@@ -222,6 +263,7 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
               className="select"
               value={filters.status}
               onChange={handleChange}
+              disabled={loading}
             >
               {statusOptions.map(option => (
                 <option key={option.value} value={option.value}>
@@ -229,12 +271,45 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
                 </option>
               ))}
             </select>
-            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-neutral-200">
+          <button
+            onClick={handleApplyFilters}
+            disabled={!hasActiveFilters || loading || isApplying}
+            className={`btn flex items-center gap-2 ${
+              hasActiveFilters 
+                ? 'btn-primary' 
+                : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
+            }`}
+          >
+            {isApplying ? (
+              <RefreshCw size={16} className="animate-spin" />
+            ) : (
+              <Filter size={16} />
+            )}
+            <span>
+              {isApplying ? 'Aplicando...' : 'Buscar Eventos'}
+            </span>
+          </button>
+
+          {hasActiveFilters && (
+            <button
+              onClick={handleClearAllFilters}
+              className="btn btn-outline flex items-center gap-2"
+              disabled={loading}
+            >
+              <X size={16} />
+              <span>Limpiar Filtros</span>
+            </button>
+          )}
         </div>
 
         {/* Active Filters Summary */}
         {hasActiveFilters && (
-          <div className="pt-3 border-t border-neutral-200">
+          <div className="pt-3 border-t border-neutral-200 animate-fade-in">
             <p className="text-sm text-neutral-600 mb-2">Filtros activos:</p>
             <div className="flex flex-wrap gap-2">
               {filters.search && (
@@ -242,7 +317,8 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
                   Búsqueda: "{filters.search}"
                   <button
                     onClick={clearSearch}
-                    className="hover:text-primary-900"
+                    className="hover:text-primary-900 transition-colors"
+                    disabled={loading}
                   >
                     <X size={12} />
                   </button>
@@ -269,6 +345,14 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({ onFilterChange }) 
                 </span>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-4 animate-fade-in">
+            <RefreshCw size={20} className="animate-spin text-primary-500 mr-2" />
+            <span className="text-neutral-600">Cargando eventos...</span>
           </div>
         )}
       </div>

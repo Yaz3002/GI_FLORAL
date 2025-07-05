@@ -29,6 +29,7 @@ const Events: React.FC = () => {
   const [calendarView, setCalendarView] = useState<'month' | 'week'>('month');
   const [refreshing, setRefreshing] = useState(false);
   const [currentFilters, setCurrentFilters] = useState<EventFilters>({});
+  const [isFiltering, setIsFiltering] = useState(false);
 
   // Handle opening the form modal for creating or editing
   const handleOpenModal = (event?: Event) => {
@@ -68,20 +69,24 @@ const Events: React.FC = () => {
     }
   };
 
-  // Handle filter changes with debouncing for search
-  const handleFilterChange = useCallback((filters: EventFilters) => {
+  // Handle filter changes with improved UX
+  const handleFilterChange = useCallback(async (filters: EventFilters) => {
+    setIsFiltering(true);
     setCurrentFilters(filters);
     
-    // If there's a search term, debounce the API call
-    if (filters.search !== undefined) {
-      const timeoutId = setTimeout(() => {
-        fetchEvents(filters);
-      }, 300);
+    try {
+      await fetchEvents(filters);
       
-      return () => clearTimeout(timeoutId);
-    } else {
-      // For other filters, apply immediately
-      fetchEvents(filters);
+      // Show feedback for successful filtering
+      if (Object.keys(filters).length > 0) {
+        const filterCount = Object.keys(filters).length;
+        toast.success(`Filtros aplicados (${filterCount} ${filterCount === 1 ? 'filtro' : 'filtros'})`);
+      }
+    } catch (error) {
+      console.error('Error applying filters:', error);
+      toast.error('Error al aplicar filtros');
+    } finally {
+      setIsFiltering(false);
     }
   }, [fetchEvents]);
 
@@ -90,13 +95,13 @@ const Events: React.FC = () => {
     handleOpenModal(event);
   };
 
-  // Manual refresh
+  // Manual refresh with improved feedback
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await updateEventStatuses();
       await fetchEvents(currentFilters);
-      toast.success('Eventos actualizados');
+      toast.success('Eventos actualizados correctamente');
     } catch (error) {
       console.error('Error refreshing events:', error);
       toast.error('Error al actualizar eventos');
@@ -125,7 +130,8 @@ const Events: React.FC = () => {
     return () => clearInterval(interval);
   }, [updateEventStatuses]);
 
-  if (loading) {
+  // Show loading state during initial load
+  if (loading && !events.length) {
     return (
       <div className="page-transition">
         <div className="flex items-center justify-center py-12">
@@ -145,12 +151,14 @@ const Events: React.FC = () => {
           {/* Refresh button */}
           <button
             onClick={handleRefresh}
-            disabled={refreshing}
+            disabled={refreshing || isFiltering}
             className="btn btn-outline btn-sm flex items-center gap-2"
             title="Actualizar eventos"
           >
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Actualizar</span>
+            <span className="hidden sm:inline">
+              {refreshing ? 'Actualizando...' : 'Actualizar'}
+            </span>
           </button>
 
           {/* View toggle */}
@@ -218,8 +226,11 @@ const Events: React.FC = () => {
         </div>
       )}
 
-      {/* Filters - This is the main search functionality */}
-      <EventFiltersComponent onFilterChange={handleFilterChange} />
+      {/* Enhanced Filters */}
+      <EventFiltersComponent 
+        onFilterChange={handleFilterChange} 
+        loading={isFiltering}
+      />
 
       {/* Content */}
       {viewMode === 'calendar' ? (
@@ -233,28 +244,60 @@ const Events: React.FC = () => {
         /* Grid View */
         <div>
           {events.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {events.map(event => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  onEdit={handleOpenModal}
-                  onDelete={handleDeleteClick}
-                />
-              ))}
-            </div>
+            <>
+              {/* Results summary */}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-neutral-600">
+                  {Object.keys(currentFilters).length > 0 ? (
+                    <>Mostrando {events.length} evento{events.length !== 1 ? 's' : ''} filtrado{events.length !== 1 ? 's' : ''}</>
+                  ) : (
+                    <>Total: {events.length} evento{events.length !== 1 ? 's' : ''}</>
+                  )}
+                </p>
+                
+                {isFiltering && (
+                  <div className="flex items-center gap-2 text-sm text-primary-600">
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Filtrando...</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {events.map(event => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    onEdit={handleOpenModal}
+                    onDelete={handleDeleteClick}
+                  />
+                ))}
+              </div>
+            </>
           ) : (
             <div className="text-center py-12 bg-neutral-50 rounded-lg">
               <Calendar className="mx-auto h-12 w-12 text-neutral-400 mb-4" />
               <p className="text-neutral-500 mb-4">
-                {currentFilters.search ? 'No se encontraron eventos que coincidan con tu búsqueda' : 'No hay eventos programados'}
+                {Object.keys(currentFilters).length > 0 
+                  ? 'No se encontraron eventos que coincidan con los filtros seleccionados' 
+                  : 'No hay eventos programados'
+                }
               </p>
-              <button
-                className="btn btn-primary"
-                onClick={() => handleOpenModal()}
-              >
-                Crear Primer Evento
-              </button>
+              {Object.keys(currentFilters).length > 0 ? (
+                <button
+                  className="btn btn-outline"
+                  onClick={() => handleFilterChange({})}
+                >
+                  Limpiar Filtros
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleOpenModal()}
+                >
+                  Crear Primer Evento
+                </button>
+              )}
             </div>
           )}
         </div>
