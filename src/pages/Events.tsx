@@ -69,7 +69,7 @@ const Events: React.FC = () => {
     }
   };
 
-  // Handle filter changes with improved UX
+  // Handle filter changes with controlled notifications
   const handleFilterChange = useCallback(async (filters: EventFilters) => {
     setIsFiltering(true);
     setCurrentFilters(filters);
@@ -77,14 +77,36 @@ const Events: React.FC = () => {
     try {
       await fetchEvents(filters);
       
-      // Show feedback for successful filtering
-      if (Object.keys(filters).length > 0) {
+      // Only show notification for manual filter applications (not search)
+      const hasNonSearchFilters = Object.keys(filters).some(key => 
+        key !== 'search' && filters[key as keyof EventFilters] !== undefined
+      );
+      
+      const hasSearchFilter = filters.search && filters.search.trim().length > 0;
+      
+      // Show notification only for manual filter applications or when clearing all filters
+      if (Object.keys(filters).length === 0) {
+        // Clearing all filters
+        toast.success('Filtros eliminados - Mostrando todos los eventos', {
+          duration: 2000,
+          id: 'filter-cleared'
+        });
+      } else if (hasNonSearchFilters) {
+        // Manual filter application (not just search)
         const filterCount = Object.keys(filters).length;
-        toast.success(`Filtros aplicados (${filterCount} ${filterCount === 1 ? 'filtro' : 'filtros'})`);
+        toast.success(`Filtros aplicados (${filterCount} ${filterCount === 1 ? 'filtro' : 'filtros'})`, {
+          duration: 2000,
+          id: 'filters-applied'
+        });
       }
+      // No notification for search-only filters (real-time search)
+      
     } catch (error) {
       console.error('Error applying filters:', error);
-      toast.error('Error al aplicar filtros');
+      toast.error('Error al aplicar filtros', {
+        duration: 2000,
+        id: 'filter-error'
+      });
     } finally {
       setIsFiltering(false);
     }
@@ -101,10 +123,16 @@ const Events: React.FC = () => {
     try {
       await updateEventStatuses();
       await fetchEvents(currentFilters);
-      toast.success('Eventos actualizados correctamente');
+      toast.success('Eventos actualizados correctamente', {
+        duration: 2000,
+        id: 'events-refreshed'
+      });
     } catch (error) {
       console.error('Error refreshing events:', error);
-      toast.error('Error al actualizar eventos');
+      toast.error('Error al actualizar eventos', {
+        duration: 2000,
+        id: 'refresh-error'
+      });
     } finally {
       setRefreshing(false);
     }

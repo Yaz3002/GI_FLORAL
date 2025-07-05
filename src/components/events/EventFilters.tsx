@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { EventFilters, EventCategory, EventStatus } from '../../types/events';
 import { Search, Filter, X, RefreshCw } from 'lucide-react';
 
@@ -23,6 +23,11 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  
+  // Refs to track user actions and prevent infinite loops
+  const isUserActionRef = useRef(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastAppliedFiltersRef = useRef<string>('');
 
   // Check if any filters are active
   useEffect(() => {
@@ -36,17 +41,34 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({
     setHasActiveFilters(active);
   }, [filters]);
 
-  // Debounced search handler
+  // Debounced search handler with controlled notifications
   const debouncedSearch = useCallback((searchTerm: string) => {
-    const timeoutId = setTimeout(() => {
-      setFilters(prev => ({
-        ...prev,
-        search: searchTerm.trim() || undefined,
-      }));
-    }, 300);
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
 
-    return () => clearTimeout(timeoutId);
-  }, []);
+    searchTimeoutRef.current = setTimeout(() => {
+      const newFilters = {
+        ...filters,
+        search: searchTerm.trim() || undefined,
+      };
+      
+      setFilters(newFilters);
+      
+      // Apply search filter immediately without notification
+      const cleanFilters = Object.entries(newFilters).reduce((acc, [key, value]) => {
+        if (value !== undefined && value !== '' && value !== 'all') {
+          acc[key as keyof EventFilters] = value;
+        }
+        return acc;
+      }, {} as EventFilters);
+
+      // Mark as automatic action (no notification)
+      isUserActionRef.current = false;
+      onFilterChange(cleanFilters);
+    }, 300);
+  }, [filters, onFilterChange]);
 
   // Handle search input changes with real-time feedback
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,10 +82,25 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({
   // Clear search
   const clearSearch = () => {
     setSearchInput('');
-    setFilters(prev => ({
-      ...prev,
+    
+    const newFilters = {
+      ...filters,
       search: undefined,
-    }));
+    };
+    
+    setFilters(newFilters);
+    
+    // Apply filters without search term
+    const cleanFilters = Object.entries(newFilters).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== '' && value !== 'all') {
+        acc[key as keyof EventFilters] = value;
+      }
+      return acc;
+    }, {} as EventFilters);
+
+    // Mark as user action for notification
+    isUserActionRef.current = true;
+    onFilterChange(cleanFilters);
   };
 
   // Handle other filter changes
@@ -75,7 +112,7 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({
     }));
   };
 
-  // Apply filters
+  // Apply filters with notification control
   const handleApplyFilters = async () => {
     if (!hasActiveFilters) return;
     
@@ -89,6 +126,16 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({
         return acc;
       }, {} as EventFilters);
 
+      // Check if filters actually changed to avoid duplicate notifications
+      const filtersString = JSON.stringify(cleanFilters);
+      if (filtersString === lastAppliedFiltersRef.current) {
+        return;
+      }
+      
+      lastAppliedFiltersRef.current = filtersString;
+
+      // Mark as user action for notification
+      isUserActionRef.current = true;
       onFilterChange(cleanFilters);
     } catch (error) {
       console.error('Error applying filters:', error);
@@ -97,7 +144,7 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({
     }
   };
 
-  // Reset all filters
+  // Reset all filters with notification
   const handleClearAllFilters = () => {
     const resetFilters = {
       startDate: '',
@@ -109,18 +156,21 @@ const EventFiltersComponent: React.FC<EventFiltersProps> = ({
     
     setFilters(resetFilters);
     setSearchInput('');
+    lastAppliedFiltersRef.current = '';
     
-    // Clear URL parameters and show all events
+    // Mark as user action for notification
+    isUserActionRef.current = true;
     onFilterChange({});
   };
 
-  // Auto-apply search filter (for real-time search experience)
+  // Cleanup timeouts on unmount
   useEffect(() => {
-    if (filters.search !== undefined) {
-      const searchOnlyFilters = { search: filters.search };
-      onFilterChange(searchOnlyFilters);
-    }
-  }, [filters.search, onFilterChange]);
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const categoryOptions = [
     { value: 'all', label: 'Todas las categorías' },
