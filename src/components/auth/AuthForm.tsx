@@ -112,6 +112,8 @@ const AuthForm: React.FC = () => {
         <div className="mt-6 text-center">
           <p className="text-sm text-neutral-500">
             Sistema de Gestión de Inventarios
+            Usuario: franco@encanto.com
+            Contraseña: 123456
           </p>
         </div>
       </div>
